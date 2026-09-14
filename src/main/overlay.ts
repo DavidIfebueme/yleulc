@@ -1,21 +1,18 @@
 import { BrowserWindow, shell } from "electron"
 import { join } from "node:path"
+import type { AppConfigShape } from "./AppConfig"
 
-const overlayWidth = 420
-const overlayHeight = 320
-const overlayTitle = "yleulc overlay"
-
-export function createOverlayWindow(): BrowserWindow {
+export function createOverlayWindow(config: AppConfigShape): BrowserWindow {
   const overlay = new BrowserWindow({
-    width: overlayWidth,
-    height: overlayHeight,
-    title: overlayTitle,
+    width: config.overlayWidth,
+    height: config.overlayHeight,
+    title: config.overlayTitle,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {
-      preload: join(__dirname, "../preload/index.mjs"),
+      preload: join(__dirname, "../preload/index.js"),
       sandbox: false
     }
   })
