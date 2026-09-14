@@ -14,7 +14,7 @@ Yleulc: Linux-first invisible AI meeting overlay. Electron + React + TypeScript 
 
 - TypeScript strict. Never use `any`. If a third-party type forces your hand, isolate it in one narrow cast helper in `src/lib/`, never inline.
 - No code comments of any kind. No `//`, no `/* */`, no JSDoc. Names carry meaning. Bare eslint-disable directives only where a rule cannot be satisfied structurally.
-- No try/catch statements anywhere. Model failures with Effect (`Effect.tryPromise`, `Effect.catchAll`, `Effect.mapError`, typed error channels). The linter bans TryStatement.
+- No try/catch statements anywhere. Model failures with Effect (`Effect.tryPromise`, `Effect.catch`, `Effect.mapError`, typed error channels). The linter bans TryStatement.
 - Commits: one logical change per commit. Message is one lowercase conventional line, e.g. `feat: add overlay window service`. No body.
 - Effect v4, version pinned exact in package.json: `Context.Service` for services, `Layer` for composition, `Schema` for every IPC payload and every LLM API DTO, `Config` for configuration.
 - Tests: every main-process service ships with Effect TestLayers plus vitest specs. No network calls in tests.
