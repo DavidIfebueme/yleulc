@@ -9,3 +9,11 @@ body,
 body {
   background: transparent;
 }
+
+.overlay-drag {
+  -webkit-app-region: drag;
+}
+
+.overlay-no-drag {
+  -webkit-app-region: no-drag;
+}
