@@ -1,0 +1,1 @@
+export const openaiModelList = `{"object":"list","data":[{"id":"gpt-4o","object":"model","created":1726400000,"owned_by":"openai"},{"id":"gpt-4o-mini","object":"model","created":1726400000,"owned_by":"openai"}]}`
