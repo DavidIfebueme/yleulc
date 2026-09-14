@@ -3,6 +3,7 @@ import type { TranscriptSegment } from "./Transcription"
 
 export const deepgramListenHost = "wss://api.deepgram.com"
 export const deepgramCloseStreamPayload = "{\"type\":\"CloseStream\"}"
+export const deepgramFinalizePayload = "{\"type\":\"Finalize\"}"
 
 export function buildDeepgramListenUrl(language: string): string {
   const params = new URLSearchParams({
@@ -240,6 +241,7 @@ export function buildDeepgramSocketHarness(events: ReadonlyArray<string>): Effec
 export interface DeepgramSessionShape {
   readonly segments: Stream.Stream<TranscriptSegment, DeepgramError>
   readonly sendAudio: (pcm: Uint8Array) => Effect.Effect<void, DeepgramError>
+  readonly sendJson: (text: string) => Effect.Effect<void, DeepgramError>
   readonly terminate: Effect.Effect<void, DeepgramError>
 }
 
@@ -288,6 +290,7 @@ export class DeepgramSessionFactory extends Context.Service<DeepgramSessionFacto
               Stream.flatMap((segment) => (segment === undefined ? Stream.empty : Stream.succeed(segment)))
             ),
             sendAudio: socket.sendAudio,
+            sendJson: socket.sendJson,
             terminate: Effect.andThen(socket.sendJson(deepgramCloseStreamPayload), socket.close)
           }
         })
@@ -303,6 +306,7 @@ export class DeepgramSessionFactory extends Context.Service<DeepgramSessionFacto
           { endMs: 2400, id: "dg-test-1", interim: false, language: "en", startMs: 0, text: "hello world" }
         ]),
         sendAudio: () => Effect.void,
+        sendJson: () => Effect.void,
         terminate: Effect.void
       })
     })

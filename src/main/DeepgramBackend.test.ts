@@ -178,6 +178,7 @@ describe("DeepgramSessionFactory", () => {
           { endMs: 100, id: "dg-x", interim: false, language: "en", startMs: 0, text: "double" }
         ]),
         sendAudio: () => Effect.void,
+        sendJson: () => Effect.void,
         terminate: Effect.void
       })
     )
