@@ -31,13 +31,13 @@ YLEULC_VERIFY_CLASS="yleulc-verify-overlay" "$work_dir/stage" >"$work_dir/stage.
 stage_pid="$!"
 
 for _ in $(seq 1 50); do
-  if rg -q '^READY ' "$work_dir/stage.log"; then
+  if grep -q '^READY ' "$work_dir/stage.log"; then
     break
   fi
   sleep 0.1
 done
 
-rg -q '^READY ' "$work_dir/stage.log"
+grep -q '^READY ' "$work_dir/stage.log"
 "$work_dir/capture" "$work_dir/raw.ppm"
 
 YLEULC_REWRITER_PATH="$repo_root/native/capture-rewriter/capture_rewriter.so" \
@@ -59,6 +59,6 @@ pixel_hex() {
 
 test "$(pixel_hex "$work_dir/raw.ppm")" = "ff00ff"
 test "$(pixel_hex "$work_dir/rewritten.ppm")" = "203040"
-rg -q 'capture hook fired' "$work_dir/rewriter.log"
-rg -q 'rewrote overlay' "$work_dir/rewriter.log"
+grep -q 'capture hook fired' "$work_dir/rewriter.log"
+grep -q 'rewrote overlay' "$work_dir/rewriter.log"
 printf '%s\n' "PASS overlay is erased from wrapped root capture"
