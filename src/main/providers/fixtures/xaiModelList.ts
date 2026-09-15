@@ -1,0 +1,1 @@
+export const xaiModelList = `{"object":"list","data":[{"id":"grok-4.6","object":"model","created":1726400000,"owned_by":"xai"},{"id":"grok-4.5","object":"model","created":1726400000,"owned_by":"xai"}]}`
