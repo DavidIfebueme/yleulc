@@ -57,8 +57,10 @@ pixel_hex() {
   dd if="$1" bs=1 skip="$((header_size + (250 * 1280 + 360) * 3))" count=3 status=none | od -An -tx1 | tr -d ' \n'
 }
 
-test "$(pixel_hex "$work_dir/raw.ppm")" = "ff00ff"
-test "$(pixel_hex "$work_dir/rewritten.ppm")" = "203040"
-grep -q 'capture hook fired' "$work_dir/rewriter.log"
-grep -q 'rewrote overlay' "$work_dir/rewriter.log"
+raw_pixel="$(pixel_hex "$work_dir/raw.ppm")"
+rewritten_pixel="$(pixel_hex "$work_dir/rewritten.ppm")"
+printf '%s\n' "PIXELS raw=$raw_pixel rewritten=$rewritten_pixel"
+grep -E 'capture hook fired|rewrote overlay' "$work_dir/rewriter.log"
+test "$raw_pixel" = "ff00ff"
+test "$rewritten_pixel" = "203040"
 printf '%s\n' "PASS overlay is erased from wrapped root capture"
