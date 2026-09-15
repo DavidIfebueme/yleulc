@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../shared/settingsIpc"
+import { makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
 import { AskPanel } from "./ask/AskPanel"
 import { SettingsDashboard } from "./settings/SettingsDashboard"
 
@@ -7,6 +8,11 @@ export function OverlayPanel() {
   const [settings, setSettings] = useState<SettingsSnapshot>(defaultSettingsSnapshot)
   const [settingsSaveError, setSettingsSaveError] = useState("")
   const [showSettings, setShowSettings] = useState(false)
+  const saveQueue = useRef(
+    makeSettingsSaveQueue(defaultSettingsSnapshot, (snapshot) =>
+      typeof window.yleulc === "undefined" ? Promise.resolve(snapshot) : window.yleulc.saveSettings(snapshot)
+    )
+  )
 
   useEffect(() => {
     if (typeof window.yleulc === "undefined") {
@@ -15,6 +21,9 @@ export function OverlayPanel() {
     void window.yleulc.getSettings().then(
       (snapshot) => {
         setSettings(snapshot)
+        saveQueue.current = makeSettingsSaveQueue(snapshot, (next) =>
+          typeof window.yleulc === "undefined" ? Promise.resolve(next) : window.yleulc.saveSettings(next)
+        )
         setSettingsSaveError("")
       },
       () => {
@@ -23,13 +32,8 @@ export function OverlayPanel() {
     )
   }, [])
 
-  const saveSettings = (snapshot: SettingsSnapshot): void => {
-    if (typeof window.yleulc === "undefined") {
-      setSettings(snapshot)
-      setSettingsSaveError("")
-      return
-    }
-    void window.yleulc.saveSettings(snapshot).then(
+  const saveSettings = (update: SettingsUpdate): void => {
+    void saveQueue.current.enqueue(update).then(
       (saved) => {
         setSettings(saved)
         setSettingsSaveError("")
@@ -59,13 +63,13 @@ export function OverlayPanel() {
         ) : (
           <AskPanel
             activePromptModeId={settings.modesPrompts.activePromptModeId}
+            settingsSaveError={settingsSaveError}
             promptModes={settings.modesPrompts.promptModes}
             onActivePromptModeChange={(activePromptModeId) => {
-              const next = {
-                ...settings,
-                modesPrompts: { ...settings.modesPrompts, activePromptModeId }
-              }
-              saveSettings(next)
+              saveSettings((snapshot) => ({
+                ...snapshot,
+                modesPrompts: { ...snapshot.modesPrompts, activePromptModeId }
+              }))
             }}
           />
         )}

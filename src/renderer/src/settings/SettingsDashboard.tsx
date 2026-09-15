@@ -1,4 +1,5 @@
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../../shared/settingsIpc"
+import type { SettingsUpdate } from "../../../shared/settingsSaveQueue"
 import { SettingsPanel } from "./SettingsPanel"
 import type { ModesPromptsProviderOption } from "./ModesPrompts"
 
@@ -18,13 +19,13 @@ const providerOptions: ReadonlyArray<ModesPromptsProviderOption> = [
 
 interface SettingsDashboardProps {
   readonly errorMessage: string
-  readonly onSettingsChange: (snapshot: SettingsSnapshot) => void
+  readonly onSettingsChange: (update: SettingsUpdate) => void
   readonly settings: SettingsSnapshot
 }
 
 export function SettingsDashboard(props: SettingsDashboardProps) {
-  const save = (snapshot: SettingsSnapshot): void => {
-    props.onSettingsChange(snapshot)
+  const save = (update: SettingsUpdate): void => {
+    props.onSettingsChange(update)
   }
 
   return (
@@ -32,10 +33,10 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
       <SettingsPanel
         modesPrompts={props.settings.modesPrompts}
         onModesPromptsChange={(modesPrompts) => {
-          save({ ...props.settings, modesPrompts })
+          save((snapshot) => ({ ...snapshot, modesPrompts }))
         }}
         onReset={() => {
-          save(defaultSettingsSnapshot)
+          save(() => defaultSettingsSnapshot)
         }}
         providerOptions={providerOptions}
       />

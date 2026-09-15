@@ -40,6 +40,7 @@ interface AskPanelProps {
   readonly activePromptModeId: string
   readonly onActivePromptModeChange: (modeId: string) => void
   readonly promptModes: ReadonlyArray<PromptMode>
+  readonly settingsSaveError: string
 }
 
 export function AskPanel(props: AskPanelProps) {
@@ -224,6 +225,7 @@ export function AskPanel(props: AskPanelProps) {
           modes={props.promptModes}
           onModeChange={props.onActivePromptModeChange}
         />
+        {props.settingsSaveError === "" ? null : <p className="text-[11px] text-red-300/80">{props.settingsSaveError}</p>}
         <TranscriptToggle
           open={transcriptOpen}
           onToggle={() => {
