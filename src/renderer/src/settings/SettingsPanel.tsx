@@ -1,19 +1,11 @@
-import type { KeybindAction, KeybindMap } from "../../../shared/keybinds"
-import { KeybindTable } from "./KeybindTable"
 import { ModesPrompts } from "./ModesPrompts"
 import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPrompts"
-import { StealthToggles } from "./StealthToggles"
-import type { StealthToggleValue } from "./StealthToggles"
 
 interface SettingsPanelProps {
-  readonly keybinds: KeybindMap
   readonly modesPrompts: ModesPromptsValue
-  readonly onKeybindRebind: (action: KeybindAction, combo: string) => void
   readonly onModesPromptsChange: (value: ModesPromptsValue) => void
   readonly onReset: () => void
-  readonly onStealthChange: (value: StealthToggleValue) => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
-  readonly stealth: StealthToggleValue
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
@@ -29,14 +21,6 @@ export function SettingsPanel(props: SettingsPanelProps) {
           Reset
         </button>
       </div>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Keybinds</h3>
-        <KeybindTable keybinds={props.keybinds} onRebind={props.onKeybindRebind} />
-      </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Stealth</h3>
-        <StealthToggles value={props.stealth} onChange={props.onStealthChange} />
-      </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Modes and prompts</h3>
         <ModesPrompts

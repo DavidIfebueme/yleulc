@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { hasAskText, type AskEvent, type AskRequest } from "../shared/askIpc"
 import { applySettingsToAskRequest, runAskRequest, streamAskEvents, toAskEvent } from "./AskIpc"
 import { defaultSettingsSnapshot } from "../shared/settingsIpc"
+import { promptForSmartMode } from "../shared/askPrompts"
 import { makeAskService } from "./AskService"
 import { makeProviderRegistry } from "./providers/ProviderRegistry"
 import { ProviderError, type ChatEvent, type Provider } from "./providers/Provider"
@@ -67,6 +68,13 @@ describe("toAskEvent", () => {
 })
 
 describe("applySettingsToAskRequest", () => {
+  it("keeps the renderer smart mode instruction separate from prompt modes", () => {
+    expect(promptForSmartMode(true)).toBe(
+      "Prioritize coding assistance. Explain the approach, edge cases, and implementation clearly."
+    )
+    expect(promptForSmartMode(false)).toBe("")
+  })
+
   it("uses the saved provider, model, system prompt, and active prompt mode", () => {
     const settings = {
       ...defaultSettingsSnapshot,
@@ -98,6 +106,25 @@ describe("applySettingsToAskRequest", () => {
         defaultSettingsSnapshot
       )
     ).toMatchObject({ model: "gpt-4.1", providerId: "openai", systemPrompt: "Use a short answer." })
+  })
+
+  it("adds the active prompt mode once when the renderer sends a smart mode instruction", () => {
+    const settings = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        activePromptModeId: "sales",
+        systemPrompt: "Use concise language."
+      }
+    }
+    expect(
+      applySettingsToAskRequest(
+        { question: askRequest.question, requestId: askRequest.requestId, systemPrompt: "Prioritize coding assistance." },
+        settings
+      ).systemPrompt
+    ).toBe(
+      "Use concise language.\n\nCoach the user through this sales conversation. Give concise, practical next steps they can say aloud.\n\nPrioritize coding assistance."
+    )
   })
 })
 

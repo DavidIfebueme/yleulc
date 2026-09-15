@@ -1,5 +1,5 @@
 import type { ChangeEvent } from "react"
-import type { ModesPromptsSettings, ProviderId, SettingsMode } from "../../../shared/settingsIpc"
+import type { ModesPromptsSettings, ProviderId } from "../../../shared/settingsIpc"
 
 export type ModesPromptsValue = ModesPromptsSettings
 
@@ -31,20 +31,6 @@ export function ModesPrompts(props: ModesPromptsProps) {
 
   return (
     <div className="space-y-2">
-      <label className="flex items-center justify-between gap-2 text-xs text-white/70">
-        <span>Default mode</span>
-        <select
-          value={props.value.defaultMode}
-          onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-            const next: SettingsMode = event.currentTarget.value === "listen" ? "listen" : "ask"
-            props.onChange({ ...props.value, defaultMode: next })
-          }}
-          className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-white/90 outline-none"
-        >
-          <option value="ask">Ask</option>
-          <option value="listen">Listen</option>
-        </select>
-      </label>
       <label className="flex items-center justify-between gap-2 text-xs text-white/70">
         <span>Default provider</span>
         <select

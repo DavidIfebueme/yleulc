@@ -1,7 +1,8 @@
 import { app } from "electron"
 import { Config, Context, Data, Effect, Layer, Option, Ref, Schema, Semaphore } from "effect"
-import { readFile, writeFile } from "node:fs/promises"
+import { readFile, rename, unlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { randomUUID } from "node:crypto"
 import { defaultKeybinds } from "../shared/keybinds"
 import type { KeybindAction, KeybindMap } from "../shared/keybinds"
 import {
@@ -94,13 +95,22 @@ function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect
     const initial = yield* loadSettings(path, fallback)
     const state = yield* Ref.make(initial)
     const writes = yield* Semaphore.make(1)
-    return makeSettingsStore(initial, state, (snapshot) =>
-      Effect.tryPromise({
-        try: () => writeFile(path, JSON.stringify(snapshot), "utf8"),
+    const save = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> => {
+      const temporaryPath = `${path}.${randomUUID()}.tmp`
+      return Effect.tryPromise({
+        try: () => writeFile(temporaryPath, JSON.stringify(snapshot), "utf8"),
         catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
-      }),
-      writes
-    )
+      }).pipe(
+        Effect.andThen(() =>
+          Effect.tryPromise({
+            try: () => rename(temporaryPath, path),
+            catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
+          })
+        ),
+        Effect.ensuring(Effect.ignore(Effect.tryPromise(() => unlink(temporaryPath))))
+      )
+    }
+    return makeSettingsStore(initial, state, save, writes)
   })
 }
 

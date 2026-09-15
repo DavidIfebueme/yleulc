@@ -7,14 +7,6 @@ interface CluelyPromptModeSelectProps {
   readonly onModeChange: (modeId: string) => void
 }
 
-export function promptForCluelyMode(modes: ReadonlyArray<PromptMode>, modeId: string, smartMode: boolean): string {
-  const selected = modes.find((mode) => mode.id === modeId) ?? modes[0]
-  const smartPrompt = smartMode
-    ? "Prioritize coding assistance. Explain the approach, edge cases, and implementation clearly."
-    : ""
-  return [selected?.prompt ?? "", smartPrompt].filter((prompt) => prompt !== "").join("\n\n")
-}
-
 export function CluelyPromptModeSelect(props: CluelyPromptModeSelectProps) {
   const handleChange = (event: ChangeEvent<HTMLSelectElement>): void => {
     const found = props.modes.find((mode) => mode.id === event.currentTarget.value)

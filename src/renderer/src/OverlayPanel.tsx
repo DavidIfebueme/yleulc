@@ -5,21 +5,39 @@ import { SettingsDashboard } from "./settings/SettingsDashboard"
 
 export function OverlayPanel() {
   const [settings, setSettings] = useState<SettingsSnapshot>(defaultSettingsSnapshot)
+  const [settingsSaveError, setSettingsSaveError] = useState("")
   const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     if (typeof window.yleulc === "undefined") {
       return
     }
-    void window.yleulc.getSettings().then(setSettings, () => {})
+    void window.yleulc.getSettings().then(
+      (snapshot) => {
+        setSettings(snapshot)
+        setSettingsSaveError("")
+      },
+      () => {
+        setSettingsSaveError("settings could not be loaded")
+      }
+    )
   }, [])
 
   const saveSettings = (snapshot: SettingsSnapshot): void => {
     if (typeof window.yleulc === "undefined") {
       setSettings(snapshot)
+      setSettingsSaveError("")
       return
     }
-    void window.yleulc.saveSettings(snapshot).then(setSettings, () => {})
+    void window.yleulc.saveSettings(snapshot).then(
+      (saved) => {
+        setSettings(saved)
+        setSettingsSaveError("")
+      },
+      () => {
+        setSettingsSaveError("settings could not be saved")
+      }
+    )
   }
 
   return (
@@ -37,7 +55,7 @@ export function OverlayPanel() {
           </button>
         </div>
         {showSettings ? (
-          <SettingsDashboard settings={settings} onSettingsChange={saveSettings} />
+          <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
         ) : (
           <AskPanel
             activePromptModeId={settings.modesPrompts.activePromptModeId}

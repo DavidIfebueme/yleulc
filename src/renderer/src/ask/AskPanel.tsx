@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { quickActionIntents } from "../../../shared/askIntents"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
+import { promptForSmartMode } from "../../../shared/askPrompts"
 import type { PromptMode } from "../../../shared/settingsIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
@@ -11,7 +12,6 @@ import {
 import { AskAnswerBullets } from "./AskAnswerBullets"
 import {
   CluelyPromptModeSelect,
-  promptForCluelyMode,
 } from "./CluelyPromptModeSelect"
 import { AskErrorCard } from "./AskErrorCard"
 import { AskHistoryChips } from "./AskHistoryChips"
@@ -60,7 +60,7 @@ export function AskPanel(props: AskPanelProps) {
   const stream = useAskStream()
 
   const askWithMode = (question: string, images = attachmentImages(attachments)): void => {
-    stream.ask(question, images, promptForCluelyMode(props.promptModes, props.activePromptModeId, smartMode))
+    stream.ask(question, images, promptForSmartMode(smartMode))
   }
 
   const getAnswerFromScreen = (): void => {

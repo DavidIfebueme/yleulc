@@ -17,6 +17,7 @@ const providerOptions: ReadonlyArray<ModesPromptsProviderOption> = [
 ]
 
 interface SettingsDashboardProps {
+  readonly errorMessage: string
   readonly onSettingsChange: (snapshot: SettingsSnapshot) => void
   readonly settings: SettingsSnapshot
 }
@@ -27,23 +28,18 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
   }
 
   return (
-    <SettingsPanel
-      keybinds={props.settings.keybinds}
-      modesPrompts={props.settings.modesPrompts}
-      onKeybindRebind={(action, combo) => {
-        save({ ...props.settings, keybinds: { ...props.settings.keybinds, [action]: combo } })
-      }}
-      onModesPromptsChange={(modesPrompts) => {
-        save({ ...props.settings, modesPrompts })
-      }}
-      onReset={() => {
-        save(defaultSettingsSnapshot)
-      }}
-      onStealthChange={(stealth) => {
-        save({ ...props.settings, stealth })
-      }}
-      providerOptions={providerOptions}
-      stealth={props.settings.stealth}
-    />
+    <>
+      <SettingsPanel
+        modesPrompts={props.settings.modesPrompts}
+        onModesPromptsChange={(modesPrompts) => {
+          save({ ...props.settings, modesPrompts })
+        }}
+        onReset={() => {
+          save(defaultSettingsSnapshot)
+        }}
+        providerOptions={providerOptions}
+      />
+      {props.errorMessage === "" ? null : <p className="mt-2 text-xs text-red-300/80">{props.errorMessage}</p>}
+    </>
   )
 }

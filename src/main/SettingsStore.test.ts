@@ -1,5 +1,5 @@
 import { ConfigProvider, Deferred, Effect, Fiber, Layer, Ref } from "effect"
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
@@ -153,6 +153,7 @@ describe("SettingsStore", () => {
     )
     expect(restored).toEqual(saved)
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual(saved)
+    expect(await readdir(directory)).toEqual(["settings.json"])
     await rm(directory, { force: true, recursive: true })
   })
   it("keeps the prior snapshot when a file write fails", async () => {
