@@ -23,3 +23,12 @@ jobs:
         run: npm run test
       - name: build
         run: npm run build
+  verify-overlay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: install X11 dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxext-dev xvfb
+      - name: verify overlay erasure
+        run: scripts/verify-overlay/run.sh
