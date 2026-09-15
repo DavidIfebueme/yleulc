@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron"
 import type { IpcRendererEvent } from "electron"
 import { askCancelChannel, askEventChannel, askRequestChannel, type AskEvent } from "../shared/askIpc"
+import { captureAreaChannel, captureFullscreenChannel } from "../shared/captureIpc"
+import type { CropRect } from "../shared/screenshot"
 import { appVersionChannel, type YleulcBridge } from "../shared/yleulcBridge"
 
 const yleulcBridge: YleulcBridge = {
@@ -9,6 +11,8 @@ const yleulcBridge: YleulcBridge = {
   cancelAsk: (requestId) => {
     ipcRenderer.send(askCancelChannel, requestId)
   },
+  captureArea: (rect: CropRect) => ipcRenderer.invoke(captureAreaChannel, { rect }),
+  captureFullscreen: () => ipcRenderer.invoke(captureFullscreenChannel),
   onAskEvent: (listener) => {
     const subscription = (_event: IpcRendererEvent, value: AskEvent): void => {
       listener(value)

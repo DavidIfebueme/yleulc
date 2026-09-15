@@ -9,12 +9,21 @@ import {
   type AskEvent
 } from "../shared/askIpc"
 import { appVersionChannel } from "../shared/yleulcBridge"
+import {
+  CaptureAreaRequestSchema,
+  captureAreaChannel,
+  captureFullscreenChannel
+} from "../shared/captureIpc"
+import type { ScreenshotImage } from "../shared/screenshot"
 import { AppConfig } from "./AppConfig"
 import { AskService, type AskServiceError } from "./AskService"
 import { runAskRequest } from "./AskIpc"
+import { CaptureService } from "./CaptureService"
 import { createOverlayWindow } from "./overlay"
 
 const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
+
+const decodeCaptureAreaResult = Schema.decodeUnknownResult(CaptureAreaRequestSchema)
 
 const runningAsks = new Map<string, Fiber.Fiber<void, AskServiceError>>()
 
@@ -27,6 +36,7 @@ const program = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady())
   const config = yield* AppConfig
   const askService = yield* AskService
+  const captureService = yield* CaptureService
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
   })
@@ -68,12 +78,36 @@ const program = Effect.gen(function* () {
     })
   })
   yield* Effect.sync(() => {
+    ipcMain.handle(captureFullscreenChannel, (): Promise<ScreenshotImage> =>
+      Effect.runPromise(
+        Effect.mapError(
+          captureService.captureFullscreen(),
+          (cause) => new Error(cause.reason)
+        )
+      )
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(captureAreaChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<ScreenshotImage> => {
+      const decoded = decodeCaptureAreaResult(raw)
+      if (decoded._tag === "Failure") {
+        return Promise.reject(new Error("invalid capture area request"))
+      }
+      return Effect.runPromise(
+        Effect.mapError(
+          captureService.captureArea(decoded.success.rect),
+          (cause) => new Error(cause.reason)
+        )
+      )
+    })
+  })
+  yield* Effect.sync(() => {
     createOverlayWindow(config)
   })
 })
 
 const main = Effect.catch(
-  Effect.provide(program, Layer.merge(AppConfig.Live, AskService.Test)),
+  Effect.provide(program, Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live)),
   (error) =>
     Effect.sync(() => {
       console.error(error)
