@@ -1,0 +1,44 @@
+name: release
+"on":
+  push:
+    tags:
+      - v*.*.*
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4.4.0
+      - name: setup node
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22.22.1
+          cache: npm
+      - name: install dependencies
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: test
+        run: npm run test
+      - name: check tag matches package version
+        run: test "v$(node -p "require('./package.json').version")" = "${{ github.ref_name }}"
+      - name: install system build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxext-dev
+      - name: build native shim
+        run: make -C native/capture-rewriter && test -f native/capture-rewriter/capture_rewriter.so
+      - name: package linux artifacts
+        run: npm run dist
+      - name: write checksums
+        run: sha256sum dist/*.deb dist/*.AppImage > dist/SHASUMS256.txt && sha256sum -c dist/SHASUMS256.txt && ls -la dist
+      - name: attach artifacts to release
+        uses: softprops/action-gh-release@v2.6.2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.deb
+            dist/*.AppImage
+            dist/SHASUMS256.txt
