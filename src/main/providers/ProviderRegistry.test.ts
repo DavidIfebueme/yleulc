@@ -9,13 +9,19 @@ const chatRequest: ChatRequest = {
 }
 
 describe("ProviderRegistry", () => {
-  it("resolves openai, gemini, and custom entries", async () => {
+  it("resolves anthropic, custom, gemini, ollama, and openai entries", async () => {
     const program = Effect.gen(function* () {
       const registry = yield* ProviderRegistry
       return registry
     })
     const registry = await Effect.runPromise(Effect.provide(program, ProviderRegistry.Test))
-    expect(registry.providers.map((provider) => provider.id)).toEqual(["custom", "gemini", "openai"])
+    expect(registry.providers.map((provider) => provider.id)).toEqual([
+      "anthropic",
+      "custom",
+      "gemini",
+      "ollama",
+      "openai"
+    ])
   })
   it("looks up each entry by id", async () => {
     const program = Effect.gen(function* () {
@@ -23,15 +29,27 @@ describe("ProviderRegistry", () => {
       return registry
     })
     const registry = await Effect.runPromise(Effect.provide(program, ProviderRegistry.Test))
+    const anthropic = registry.get("anthropic")
     const openai = registry.get("openai")
     const gemini = registry.get("gemini")
+    const ollama = registry.get("ollama")
     const custom = registry.get("custom")
+    expect(Option.isSome(anthropic)).toBe(true)
     expect(Option.isSome(openai)).toBe(true)
     expect(Option.isSome(gemini)).toBe(true)
+    expect(Option.isSome(ollama)).toBe(true)
     expect(Option.isSome(custom)).toBe(true)
-    if (Option.isSome(openai) && Option.isSome(gemini) && Option.isSome(custom)) {
+    if (
+      Option.isSome(anthropic) &&
+      Option.isSome(openai) &&
+      Option.isSome(gemini) &&
+      Option.isSome(ollama) &&
+      Option.isSome(custom)
+    ) {
+      expect(anthropic.value.displayName).toBe("Anthropic")
       expect(openai.value.displayName).toBe("OpenAI")
       expect(gemini.value.displayName).toBe("Gemini")
+      expect(ollama.value.displayName).toBe("Ollama")
       expect(custom.value.displayName).toBe("Custom")
     }
   })
