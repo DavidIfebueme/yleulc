@@ -50,6 +50,33 @@ export const OpenAIChatCompletionRequestSchema = Schema.Struct({
 
 export type OpenAIChatCompletionRequest = typeof OpenAIChatCompletionRequestSchema.Type
 
+export const MistralImagePartSchema = Schema.Struct({
+  image_url: Schema.String,
+  type: Schema.Literal("image_url")
+})
+
+export type MistralImagePart = typeof MistralImagePartSchema.Type
+
+export const MistralContentPartSchema = Schema.Union([MistralImagePartSchema, OpenAITextPartSchema])
+
+export const MistralMessageSchema = Schema.Struct({
+  content: Schema.Union([Schema.String, Schema.Array(MistralContentPartSchema)]),
+  role: ChatRoleSchema
+})
+
+export type MistralMessage = typeof MistralMessageSchema.Type
+
+export const MistralChatCompletionRequestSchema = Schema.Struct({
+  max_tokens: Schema.optional(Schema.Number),
+  messages: Schema.Array(MistralMessageSchema),
+  model: Schema.String,
+  stream: Schema.Literal(true),
+  stream_options: Schema.optional(OpenAIStreamOptionsSchema),
+  temperature: Schema.optional(Schema.Number)
+})
+
+export type MistralChatCompletionRequest = typeof MistralChatCompletionRequestSchema.Type
+
 export const OpenAIStreamDeltaSchema = Schema.Struct({
   content: Schema.optional(Schema.Union([Schema.Null, Schema.String]))
 })
@@ -130,6 +157,34 @@ export function buildOpenAIRequestBody(request: ChatRequest): OpenAIChatCompleti
   }
 }
 
+export function toMistralImagePart(image: ChatImage): MistralImagePart {
+  return {
+    image_url: `data:${image.mimeType};base64,${image.base64}`,
+    type: "image_url"
+  }
+}
+
+export function toMistralMessage(message: ChatMessage): MistralMessage {
+  if (message.images.length === 0) {
+    return { content: message.text, role: message.role }
+  }
+  return {
+    content: [{ text: message.text, type: "text" }, ...message.images.map(toMistralImagePart)],
+    role: message.role
+  }
+}
+
+export function buildMistralRequestBody(request: ChatRequest): MistralChatCompletionRequest {
+  return {
+    max_tokens: request.maxTokens,
+    messages: request.messages.map(toMistralMessage),
+    model: request.model,
+    stream: true,
+    stream_options: { include_usage: true },
+    temperature: request.temperature
+  }
+}
+
 export function chatEventsFromSseText(
   providerId: ProviderId,
   sseText: string
@@ -183,6 +238,60 @@ export function chatEventsFromSseText(
   })
 }
 
+export function chatEventsFromOpenRouterSseText(
+  providerId: ProviderId,
+  sseText: string
+): Effect.Effect<ReadonlyArray<ChatEvent>, ProviderError> {
+  return Effect.gen(function* () {
+    const events: Array<ChatEvent> = []
+    const lines = sseText.split("\n")
+    for (const rawLine of lines) {
+      const line = rawLine.trim()
+      if (line.length === 0 || line.startsWith(":") || !line.startsWith(sseDataPrefix)) {
+        continue
+      }
+      const payload = line.slice(sseDataPrefix.length).trim()
+      if (payload === sseDoneTerminator) {
+        return events
+      }
+      const maybeError = decodeErrorJson(payload)
+      if (maybeError._tag === "Success") {
+        events.push({ _tag: "error", message: maybeError.success.error.message })
+        return events
+      }
+      const maybeChunk = decodeChunkJson(payload)
+      if (maybeChunk._tag === "Failure") {
+        return yield* Effect.fail(
+          new ProviderError({ kind: "parse", message: `unparseable stream payload: ${payload}`, providerId })
+        )
+      }
+      const usage = maybeChunk.success.usage
+      if (usage !== undefined) {
+        events.push({
+          _tag: "usage",
+          usage: {
+            completionTokens: usage.completion_tokens,
+            promptTokens: usage.prompt_tokens,
+            totalTokens: usage.total_tokens
+          }
+        })
+        continue
+      }
+      for (const choice of maybeChunk.success.choices ?? []) {
+        const content = choice.delta?.content
+        if (typeof content === "string" && content.length > 0) {
+          events.push({ _tag: "text-delta", delta: content })
+        }
+        const finishReason = choice.finish_reason
+        if (typeof finishReason === "string" && finishReason.length > 0) {
+          events.push({ _tag: "done", finishReason })
+        }
+      }
+    }
+    return events
+  })
+}
+
 export interface OpenAICompatibleTransport {
   readonly getJsonText: (path: string) => Effect.Effect<string, ProviderError>
   readonly postSseText: (path: string, body: string) => Effect.Effect<string, ProviderError>
@@ -190,8 +299,13 @@ export interface OpenAICompatibleTransport {
 
 export interface OpenAICompatibleOptions {
   readonly baseUrl: string
+  readonly buildRequestBody?: (request: ChatRequest) => MistralChatCompletionRequest | OpenAIChatCompletionRequest
   readonly curatedModels: ReadonlyArray<string>
   readonly displayName: string
+  readonly parseSseText?: (
+    providerId: ProviderId,
+    sseText: string
+  ) => Effect.Effect<ReadonlyArray<ChatEvent>, ProviderError>
   readonly providerId: ProviderId
   readonly transport: OpenAICompatibleTransport
   readonly visionModels: ReadonlyArray<string>
@@ -272,12 +386,14 @@ export function failingTransport(error: ProviderError): OpenAICompatibleTranspor
 }
 
 export function makeOpenAICompatibleProvider(options: OpenAICompatibleOptions): Provider {
+  const buildBody = options.buildRequestBody ?? buildOpenAIRequestBody
+  const parseText = options.parseSseText ?? chatEventsFromSseText
   const completeChat = (request: ChatRequest): Stream.Stream<ChatEvent, ProviderError> =>
     Stream.fromIterableEffect(
       Effect.gen(function* () {
-        const body = buildOpenAIRequestBody(request)
+        const body = buildBody(request)
         const sseText = yield* options.transport.postSseText("/chat/completions", JSON.stringify(body))
-        return yield* chatEventsFromSseText(options.providerId, sseText)
+        return yield* parseText(options.providerId, sseText)
       })
     )
   const listModels = (): Effect.Effect<ReadonlyArray<string>, ProviderError> =>

@@ -4,12 +4,17 @@ import { openaiErrorStream } from "./fixtures/openaiErrorStream"
 import { openaiModelList } from "./fixtures/openaiModelList"
 import { openaiTextStream } from "./fixtures/openaiTextStream"
 import { openaiUsageStream } from "./fixtures/openaiUsageStream"
+import { openrouterUsageStream } from "./fixtures/openrouterUsageStream"
 import {
+  buildMistralRequestBody,
   buildOpenAIRequestBody,
+  chatEventsFromOpenRouterSseText,
   chatEventsFromSseText,
   failingTransport,
   fixtureTransport,
   makeOpenAICompatibleProvider,
+  toMistralImagePart,
+  toMistralMessage,
   toOpenAIImagePart,
   toOpenAIMessage
 } from "./OpenAICompatible"
@@ -168,5 +173,66 @@ describe("provider schemas", () => {
   })
   it("decodes a chat request", () => {
     expect(decodeChatRequest(chatRequest)).toEqual(chatRequest)
+  })
+})
+
+describe("mistral string-form image_url", () => {
+  it("encodes image parts as a plain string url", () => {
+    const image: ChatImage = { base64: "aGVsbG8=", mimeType: "image/png" }
+    expect(toMistralImagePart(image)).toEqual({
+      image_url: "data:image/png;base64,aGVsbG8=",
+      type: "image_url"
+    })
+  })
+  it("sends text-only messages as a plain string", () => {
+    expect(toMistralMessage({ images: [], role: "user", text: "hi" })).toEqual({
+      content: "hi",
+      role: "user"
+    })
+  })
+  it("sends image messages with string-form image_url parts", () => {
+    const message = toMistralMessage({
+      images: [{ base64: "aGVsbG8=", mimeType: "image/png" }],
+      role: "user",
+      text: "look"
+    })
+    expect(message).toEqual({
+      content: [
+        { text: "look", type: "text" },
+        { image_url: "data:image/png;base64,aGVsbG8=", type: "image_url" }
+      ],
+      role: "user"
+    })
+  })
+  it("builds mistral request bodies with string-form messages", () => {
+    expect(buildMistralRequestBody(chatRequest)).toEqual({
+      max_tokens: 64,
+      messages: [{ content: "hello", role: "user" }],
+      model: "gpt-4o",
+      stream: true,
+      stream_options: { include_usage: true },
+      temperature: 0.2
+    })
+  })
+})
+
+describe("openrouter usage accounting", () => {
+  it("treats usage frames as accounting without a second completion", async () => {
+    const events = await Effect.runPromise(chatEventsFromOpenRouterSseText("openrouter", openrouterUsageStream))
+    expect(events).toEqual([
+      { _tag: "text-delta", delta: "Hi" },
+      { _tag: "done", finishReason: "stop" },
+      {
+        _tag: "usage",
+        usage: { completionTokens: 3, promptTokens: 12, totalTokens: 15 }
+      }
+    ])
+  })
+  it("emits a single done for the standard parser on the same stream", async () => {
+    const events = await Effect.runPromise(chatEventsFromSseText("openrouter", openrouterUsageStream))
+    expect(events.filter((event) => event._tag === "done")).toEqual([
+      { _tag: "done", finishReason: "stop" },
+      { _tag: "done", finishReason: "stop" }
+    ])
   })
 })
