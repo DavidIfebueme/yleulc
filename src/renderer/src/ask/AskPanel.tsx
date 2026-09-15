@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { quickActionIntents } from "../../../shared/askIntents"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
+import type { PromptMode } from "../../../shared/settingsIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
   answerAskQuestion,
@@ -11,7 +12,6 @@ import { AskAnswerBullets } from "./AskAnswerBullets"
 import {
   CluelyPromptModeSelect,
   promptForCluelyMode,
-  type CluelyPromptModeId
 } from "./CluelyPromptModeSelect"
 import { AskErrorCard } from "./AskErrorCard"
 import { AskHistoryChips } from "./AskHistoryChips"
@@ -36,7 +36,13 @@ import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
 
-export function AskPanel() {
+interface AskPanelProps {
+  readonly activePromptModeId: string
+  readonly onActivePromptModeChange: (modeId: string) => void
+  readonly promptModes: ReadonlyArray<PromptMode>
+}
+
+export function AskPanel(props: AskPanelProps) {
   const [listening, setListening] = useState(true)
   const [audioOn, setAudioOn] = useState(true)
   const [listenSeconds, setListenSeconds] = useState(0)
@@ -49,13 +55,12 @@ export function AskPanel() {
   const [hidden, setHidden] = useState(false)
   const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
   const [captureError, setCaptureError] = useState("")
-  const [promptModeId, setPromptModeId] = useState<CluelyPromptModeId>("general")
   const [smartMode, setSmartMode] = useState(false)
   const attachCounter = useRef(0)
   const stream = useAskStream()
 
   const askWithMode = (question: string, images = attachmentImages(attachments)): void => {
-    stream.ask(question, images, promptForCluelyMode(promptModeId, smartMode))
+    stream.ask(question, images, promptForCluelyMode(props.promptModes, props.activePromptModeId, smartMode))
   }
 
   const getAnswerFromScreen = (): void => {
@@ -214,7 +219,11 @@ export function AskPanel() {
         }}
       />
       <div className="mt-2 flex items-center justify-between">
-        <CluelyPromptModeSelect modeId={promptModeId} onModeChange={setPromptModeId} />
+        <CluelyPromptModeSelect
+          modeId={props.activePromptModeId}
+          modes={props.promptModes}
+          onModeChange={props.onActivePromptModeChange}
+        />
         <TranscriptToggle
           open={transcriptOpen}
           onToggle={() => {

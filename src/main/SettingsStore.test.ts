@@ -1,7 +1,10 @@
 import { ConfigProvider, Effect, Layer } from "effect"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { defaultKeybinds, detectKeybindConflicts, isKeybindConflicted, rebindKeybind } from "../shared/keybinds"
-import { defaultSettingsSnapshot, SettingsStore } from "./SettingsStore"
+import { defaultSettingsSnapshot, makeFileSettingsStoreLayer, SettingsStore } from "./SettingsStore"
 
 describe("SettingsStore", () => {
   it("resolves defaults from the test layer", async () => {
@@ -21,6 +24,7 @@ describe("SettingsStore", () => {
     expect(snapshot.modesPrompts).toMatchObject({ defaultMode: "ask", defaultProviderId: "openai" })
   })
   it("reads every control through effect config in the live layer", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
     const configLayer = ConfigProvider.layer(
       ConfigProvider.fromEnvRecord({
         YLEULC_DEFAULT_MODE: "listen",
@@ -30,6 +34,7 @@ describe("SettingsStore", () => {
         YLEULC_STEALTH_AUTO_HIDE: "false",
         YLEULC_STEALTH_SINGLE_WINDOW_HINT: "false",
         YLEULC_SYSTEM_PROMPT: "be concise",
+        YLEULC_SETTINGS_PATH: join(directory, "settings.json"),
         YLEULC_TRANSCRIPTION_ENGINE: "deepgram"
       })
     )
@@ -51,6 +56,7 @@ describe("SettingsStore", () => {
     expect(snapshot.modesPrompts.defaultProviderId).toBe("anthropic")
     expect(snapshot.modesPrompts.defaultModel).toBe("gpt-4o-mini")
     expect(snapshot.modesPrompts.systemPrompt).toBe("be concise")
+    await rm(directory, { force: true, recursive: true })
   })
   it("writes transcription engine select through the store", async () => {
     const outcome = await Effect.runPromise(
@@ -89,6 +95,7 @@ describe("SettingsStore", () => {
           const store = yield* SettingsStore
           yield* store.setStealth({ autoHideOnPortalScreencast: false, showSingleWindowGuidance: false })
           yield* store.setModesPrompts({
+            ...defaultSettingsSnapshot.modesPrompts,
             defaultMode: "listen",
             defaultModel: "claude-sonnet-4-20250514",
             defaultProviderId: "anthropic",
@@ -106,5 +113,41 @@ describe("SettingsStore", () => {
     expect(outcome.stealth.autoHideOnPortalScreencast).toBe(false)
     expect(outcome.modesPrompts.systemPrompt).toBe("summarize actions")
     expect(outcome.afterReset).toEqual(defaultSettingsSnapshot)
+  })
+  it("persists prompt modes and the active prompt mode to a temporary file", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
+    const path = join(directory, "settings.json")
+    const saved = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        activePromptModeId: "interview",
+        promptModes: [
+          ...defaultSettingsSnapshot.modesPrompts.promptModes,
+          { id: "interview", label: "Interview", prompt: "Help me answer interview questions." }
+        ]
+      }
+    }
+    await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          yield* store.setModesPrompts(saved.modesPrompts)
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    const restored = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* store.getSnapshot()
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    expect(restored).toEqual(saved)
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual(saved)
+    await rm(directory, { force: true, recursive: true })
   })
 })

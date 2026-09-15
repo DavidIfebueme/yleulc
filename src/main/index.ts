@@ -9,6 +9,7 @@ import {
   type AskEvent
 } from "../shared/askIpc"
 import { appVersionChannel } from "../shared/yleulcBridge"
+import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
 import {
   CaptureAreaRequestSchema,
   captureAreaChannel,
@@ -19,6 +20,8 @@ import { AppConfig } from "./AppConfig"
 import { AskService, type AskServiceError } from "./AskService"
 import { runAskRequest } from "./AskIpc"
 import { CaptureService } from "./CaptureService"
+import { getSettings, saveSettings } from "./SettingsIpc"
+import { SettingsStore } from "./SettingsStore"
 import { createOverlayWindow } from "./overlay"
 
 const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
@@ -37,8 +40,17 @@ const program = Effect.gen(function* () {
   const config = yield* AppConfig
   const askService = yield* AskService
   const captureService = yield* CaptureService
+  const settingsStore = yield* SettingsStore
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(settingsGetChannel, (): Promise<unknown> => Effect.runPromise(getSettings(settingsStore)))
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(settingsSaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(saveSettings(raw, settingsStore))
+    )
   })
   yield* Effect.sync(() => {
     ipcMain.handle(askRequestChannel, (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
@@ -107,7 +119,7 @@ const program = Effect.gen(function* () {
 })
 
 const main = Effect.catch(
-  Effect.provide(program, Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live)),
+  Effect.provide(program, Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live, SettingsStore.Live)),
   (error) =>
     Effect.sync(() => {
       console.error(error)

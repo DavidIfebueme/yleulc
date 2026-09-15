@@ -1,34 +1,23 @@
-import { Config, Context, Effect, Layer, Ref, Schema } from "effect"
-import { defaultAskModel } from "../shared/askIpc"
+import { app } from "electron"
+import { Config, Context, Effect, Layer, Option, Ref, Schema } from "effect"
+import { readFile, writeFile } from "node:fs/promises"
+import { join } from "node:path"
 import { defaultKeybinds } from "../shared/keybinds"
 import type { KeybindAction, KeybindMap } from "../shared/keybinds"
-import { TranscriptionEngineKindSchema } from "./TranscriptionEngine"
-import type { TranscriptionEngineKind } from "./TranscriptionEngine"
-import { ProviderIdSchema } from "./providers/Provider"
-import type { ProviderId } from "./providers/Provider"
+import {
+  ProviderIdSchema,
+  SettingsModeSchema,
+  SettingsSnapshotSchema,
+  TranscriptionEngineKindSchema,
+  defaultSettingsSnapshot,
+  type ModesPromptsSettings,
+  type SettingsSnapshot,
+  type StealthSettings,
+  type TranscriptionEngineKind
+} from "../shared/settingsIpc"
 
-export const SettingsModeSchema = Schema.Union([Schema.Literal("ask"), Schema.Literal("listen")])
-
-export type SettingsMode = typeof SettingsModeSchema.Type
-
-export interface StealthSettings {
-  readonly autoHideOnPortalScreencast: boolean
-  readonly showSingleWindowGuidance: boolean
-}
-
-export interface ModesPromptsSettings {
-  readonly defaultMode: SettingsMode
-  readonly defaultModel: string
-  readonly defaultProviderId: ProviderId
-  readonly systemPrompt: string
-}
-
-export interface SettingsSnapshot {
-  readonly keybinds: KeybindMap
-  readonly modesPrompts: ModesPromptsSettings
-  readonly stealth: StealthSettings
-  readonly transcriptionEngine: TranscriptionEngineKind
-}
+export type { ModesPromptsSettings, SettingsSnapshot, StealthSettings, TranscriptionEngineKind }
+export { defaultSettingsSnapshot }
 
 export const defaultStealthSettings: StealthSettings = {
   autoHideOnPortalScreencast: true,
@@ -36,17 +25,7 @@ export const defaultStealthSettings: StealthSettings = {
 }
 
 export const defaultModesPromptsSettings: ModesPromptsSettings = {
-  defaultMode: "ask",
-  defaultModel: defaultAskModel,
-  defaultProviderId: "openai",
-  systemPrompt: ""
-}
-
-export const defaultSettingsSnapshot: SettingsSnapshot = {
-  keybinds: { ...defaultKeybinds },
-  modesPrompts: { ...defaultModesPromptsSettings },
-  stealth: { ...defaultStealthSettings },
-  transcriptionEngine: "local"
+  ...defaultSettingsSnapshot.modesPrompts
 }
 
 export interface SettingsStoreShape {
@@ -56,26 +35,61 @@ export interface SettingsStoreShape {
   readonly getStealth: () => Effect.Effect<StealthSettings, never>
   readonly getTranscriptionEngine: () => Effect.Effect<TranscriptionEngineKind, never>
   readonly reset: () => Effect.Effect<void, never>
+  readonly setSnapshot: (value: SettingsSnapshot) => Effect.Effect<void, never>
   readonly setKeybind: (action: KeybindAction, combo: string) => Effect.Effect<void, never>
   readonly setModesPrompts: (value: ModesPromptsSettings) => Effect.Effect<void, never>
   readonly setStealth: (value: StealthSettings) => Effect.Effect<void, never>
   readonly setTranscriptionEngine: (value: TranscriptionEngineKind) => Effect.Effect<void, never>
 }
 
-function makeSettingsStore(initial: SettingsSnapshot, state: Ref.Ref<SettingsSnapshot>): SettingsStoreShape {
+function makeSettingsStore(
+  initial: SettingsSnapshot,
+  state: Ref.Ref<SettingsSnapshot>,
+  save: (snapshot: SettingsSnapshot) => Effect.Effect<void>
+): SettingsStoreShape {
+  const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void> =>
+    Effect.andThen(Ref.set(state, snapshot), () => save(snapshot))
   return {
     getKeybinds: () => Effect.map(Ref.get(state), (snapshot) => snapshot.keybinds),
     getModesPrompts: () => Effect.map(Ref.get(state), (snapshot) => snapshot.modesPrompts),
     getSnapshot: () => Ref.get(state),
     getStealth: () => Effect.map(Ref.get(state), (snapshot) => snapshot.stealth),
     getTranscriptionEngine: () => Effect.map(Ref.get(state), (snapshot) => snapshot.transcriptionEngine),
-    reset: () => Ref.set(state, initial),
+    reset: () => setSnapshot(initial),
+    setSnapshot,
     setKeybind: (action, combo) =>
-      Ref.update(state, (snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })),
-    setModesPrompts: (value) => Ref.update(state, (snapshot) => ({ ...snapshot, modesPrompts: value })),
-    setStealth: (value) => Ref.update(state, (snapshot) => ({ ...snapshot, stealth: value })),
-    setTranscriptionEngine: (value) => Ref.update(state, (snapshot) => ({ ...snapshot, transcriptionEngine: value }))
+      Effect.flatMap(Ref.get(state), (snapshot) =>
+        setSnapshot({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })
+      ),
+    setModesPrompts: (value) =>
+      Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, modesPrompts: value })),
+    setStealth: (value) => Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, stealth: value })),
+    setTranscriptionEngine: (value) =>
+      Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, transcriptionEngine: value }))
   }
+}
+
+function loadSettings(path: string, fallback: SettingsSnapshot): Effect.Effect<SettingsSnapshot> {
+  return Effect.flatMap(
+    Effect.option(Effect.tryPromise(() => readFile(path, "utf8").then((content) => JSON.parse(content) as unknown))),
+    (content) => {
+      if (Option.isNone(content)) {
+        return Effect.succeed(fallback)
+      }
+      const decoded = Schema.decodeUnknownResult(SettingsSnapshotSchema)(content.value)
+      return Effect.succeed(decoded._tag === "Success" ? decoded.success : fallback)
+    }
+  )
+}
+
+function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect.Effect<SettingsStoreShape> {
+  return Effect.gen(function* () {
+    const initial = yield* loadSettings(path, fallback)
+    const state = yield* Ref.make(initial)
+    return makeSettingsStore(initial, state, (snapshot) =>
+      Effect.orDie(Effect.tryPromise(() => writeFile(path, JSON.stringify(snapshot), "utf8")))
+    )
+  })
 }
 
 const readLiveSnapshot = Effect.gen(function* () {
@@ -107,7 +121,10 @@ const readLiveSnapshot = Effect.gen(function* () {
     Config.schema(ProviderIdSchema, "YLEULC_DEFAULT_PROVIDER"),
     "openai"
   )
-  const defaultModel = yield* Config.withDefault(Config.String("YLEULC_DEFAULT_MODEL"), defaultAskModel)
+  const defaultModel = yield* Config.withDefault(
+    Config.String("YLEULC_DEFAULT_MODEL"),
+    defaultSettingsSnapshot.modesPrompts.defaultModel
+  )
   const systemPrompt = yield* Config.withDefault(Config.String("YLEULC_SYSTEM_PROMPT"), "")
   return {
     keybinds: {
@@ -117,7 +134,13 @@ const readLiveSnapshot = Effect.gen(function* () {
       toggleTranscript,
       toggleVisibility
     },
-    modesPrompts: { defaultMode, defaultModel, defaultProviderId, systemPrompt },
+    modesPrompts: {
+      ...defaultModesPromptsSettings,
+      defaultMode,
+      defaultModel,
+      defaultProviderId,
+      systemPrompt
+    },
     stealth: { autoHideOnPortalScreencast, showSingleWindowGuidance },
     transcriptionEngine
   } satisfies SettingsSnapshot
@@ -128,8 +151,9 @@ export class SettingsStore extends Context.Service<SettingsStore, SettingsStoreS
     SettingsStore,
     Effect.gen(function* () {
       const initial = yield* readLiveSnapshot
-      const state = yield* Ref.make(initial)
-      return makeSettingsStore(initial, state)
+      const configuredPath = yield* Config.option(Config.String("YLEULC_SETTINGS_PATH"))
+      const path = Option.getOrElse(configuredPath, () => join(app.getPath("userData"), "settings.json"))
+      return yield* makeFileSettingsStore(path, initial)
     })
   )
   static readonly Test = Layer.effect(
@@ -142,7 +166,7 @@ export class SettingsStore extends Context.Service<SettingsStore, SettingsStoreS
         transcriptionEngine: "local"
       }
       const state = yield* Ref.make(initial)
-      return makeSettingsStore(initial, state)
+      return makeSettingsStore(initial, state, () => Effect.void)
     })
   )
 }
@@ -152,7 +176,11 @@ export function makeSettingsStoreTestLayer(initial: SettingsSnapshot): Layer.Lay
     SettingsStore,
     Effect.gen(function* () {
       const state = yield* Ref.make(initial)
-      return makeSettingsStore(initial, state)
+      return makeSettingsStore(initial, state, () => Effect.void)
     })
   )
+}
+
+export function makeFileSettingsStoreLayer(path: string, initial: SettingsSnapshot): Layer.Layer<SettingsStore> {
+  return Layer.effect(SettingsStore, Effect.map(makeFileSettingsStore(path, initial), SettingsStore.of))
 }
