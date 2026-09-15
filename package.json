@@ -13,6 +13,7 @@
     "dist": "npm run build && electron-builder --linux --publish never"
   },
   "dependencies": {
+    "@effect/sql-sqlite-node": "4.0.0-rc.115",
     "effect": "4.0.0-rc.115",
     "react": "19.3.0",
     "react-dom": "19.3.0"
