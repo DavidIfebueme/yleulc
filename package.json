@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "Linux-first invisible AI meeting overlay",
+  "homepage": "https://github.com/DavidIfebueme/yleulc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DavidIfebueme/yleulc.git"
+  },
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

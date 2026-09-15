@@ -14,6 +14,7 @@ extraResources:
       - capture_rewriter.so
       - wrap-binary.sh
 linux:
+  icon: build/icons
   target:
     - deb
     - AppImage
