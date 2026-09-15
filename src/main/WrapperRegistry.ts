@@ -1,5 +1,18 @@
+import { Config, Context, Data, Effect, Layer, Option } from "effect"
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { homedir } from "node:os"
 import { join } from "node:path"
-import { yleulcAppsDir, yleulcBinDir } from "./BraveWrapper"
+import { spawn } from "node:child_process"
+import {
+  installedShimPath,
+  pickFirstExisting,
+  rewriterLogPath,
+  shimCandidates,
+  yleulcAppsDir,
+  yleulcBinDir,
+  yleulcOverlayClassDefault,
+  yleulcShareDir
+} from "./BraveWrapper"
 
 export const wrapperAppIds = ["chrome", "firefox", "zoom", "discord"] as const
 export type WrapperAppId = (typeof wrapperAppIds)[number]
@@ -216,4 +229,347 @@ export function findRewriteEvidence(logText: string): boolean {
 
 export function verificationGuidance(entry: WrapperAppEntry, logPath: string): string {
   return "Wrap and relaunch " + entry.label + " from " + entry.wrapperName + ", share a screen from it, then check " + logPath + " for \"" + rewriterHookMarker + "<pid>)\" matching the " + entry.label + " PID; " + entry.verification.guidance
+}
+
+export class WrapperRegistryError extends Data.TaggedError("WrapperRegistryError")<{
+  readonly reason: string
+  readonly detail?: string
+}> {}
+
+export interface WrapperInstallResult {
+  readonly ok: boolean
+  readonly wrapperPath: string
+  readonly shimPath: string
+  readonly targetBin: string | null
+  readonly reason?: string
+}
+
+export interface WrapperRegistryShape {
+  readonly overlayClass: string
+  readonly listApps: () => ReadonlyArray<WrapperAppId>
+  readonly getEntry: (id: WrapperAppId) => WrapperAppEntry
+  readonly findBinary: (id: WrapperAppId) => Effect.Effect<string | null, WrapperRegistryError>
+  readonly isRunning: (id: WrapperAppId) => Effect.Effect<boolean, WrapperRegistryError>
+  readonly quitApp: (id: WrapperAppId, timeoutMs?: number) => Effect.Effect<boolean, WrapperRegistryError>
+  readonly launchWrapped: (id: WrapperAppId) => Effect.Effect<boolean, WrapperRegistryError>
+  readonly installEntry: (id: WrapperAppId) => Effect.Effect<WrapperInstallResult, WrapperRegistryError>
+  readonly startWrapped: (id: WrapperAppId) => Effect.Effect<boolean, WrapperRegistryError>
+  readonly readRewriterLog: () => Effect.Effect<string, WrapperRegistryError>
+  readonly checkHookEvidence: (pid: number) => Effect.Effect<boolean, WrapperRegistryError>
+  readonly checkRewriteEvidence: () => Effect.Effect<boolean, WrapperRegistryError>
+  readonly guidanceFor: (id: WrapperAppId) => string
+}
+
+const sleepMs = (ms: number): Effect.Effect<void> =>
+  Effect.promise(
+    () =>
+      new Promise<void>((resolve) => {
+        setTimeout(() => resolve(), ms)
+      })
+  )
+
+const nullSeparator = String.fromCharCode(0)
+
+const stubBinaries: Record<WrapperAppId, string> = {
+  chrome: "/usr/bin/google-chrome",
+  firefox: "/usr/bin/firefox",
+  zoom: "/opt/zoom/ZoomLauncher",
+  discord: "/opt/discord/Discord"
+}
+
+const stubBinaryFor = (id: WrapperAppId): string => stubBinaries[id]
+
+const stubRewriterLog = "loaded pid=4242\ncapture hook fired (pid=4242)\nrewrote overlay 0x0 rect 0,0 20x20 from 1 windows (frames=1)\n"
+
+const readProcCmdline = (pidText: string): Effect.Effect<string | null, never> =>
+  Effect.catch(
+    Effect.try({
+      try: () => readFileSync(join("/proc", pidText, "cmdline"), "utf8"),
+      catch: () => new WrapperRegistryError({ reason: "read-cmdline" })
+    }),
+    () => Effect.succeed(null)
+  )
+
+const listAppPidsLive = (entry: WrapperAppEntry): Effect.Effect<ReadonlyArray<number>, WrapperRegistryError> =>
+  Effect.gen(function* () {
+    const names = yield* Effect.try({
+      try: () => readdirSync("/proc"),
+      catch: (cause) => new WrapperRegistryError({ reason: "read-proc", detail: String(cause) })
+    })
+    const numeric = names.filter((name) => /^\d+$/.test(name))
+    const maybe = yield* Effect.forEach(numeric, (pidText) =>
+      Effect.map(readProcCmdline(pidText), (raw) => {
+        if (raw === null) {
+          return null
+        }
+        const normalized = raw.split(nullSeparator).join(" ").trim()
+        if (!isAppCmdline(entry, normalized)) {
+          return null
+        }
+        return Number(pidText)
+      })
+    )
+    return maybe.filter((value): value is number => value !== null)
+  })
+
+const findBinaryLive = (entry: WrapperAppEntry): Effect.Effect<string | null, WrapperRegistryError> =>
+  Effect.sync(() => {
+    const pathEnv = process.env["PATH"] ?? ""
+    const pathDirs = pathEnv.split(":")
+    for (const candidate of entry.binaries) {
+      if (candidate.includes("/")) {
+        if (existsSync(candidate)) {
+          return candidate
+        }
+      } else {
+        for (const dir of pathDirs) {
+          if (dir === "") {
+            continue
+          }
+          const full = join(dir, candidate)
+          if (existsSync(full)) {
+            return full
+          }
+        }
+      }
+    }
+    return null
+  })
+
+const resolveShimLive = (home: string, cwd: string, override: string | undefined): string | null => {
+  const candidates = shimCandidates({ home, cwd, override })
+  return pickFirstExisting(candidates, (candidate) => existsSync(candidate))
+}
+
+const quitAppLive = (entry: WrapperAppEntry, timeoutMs: number): Effect.Effect<boolean, WrapperRegistryError> =>
+  Effect.gen(function* () {
+    const initial = yield* listAppPidsLive(entry)
+    if (initial.length === 0) {
+      return true
+    }
+    yield* Effect.forEach(
+      initial,
+      (pid) =>
+        Effect.catch(
+          Effect.try({
+            try: () => {
+              process.kill(pid, "SIGTERM")
+            },
+            catch: (cause) => new WrapperRegistryError({ reason: "signal-term", detail: String(cause) })
+          }),
+          () => Effect.void
+        ),
+      { discard: true }
+    )
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      const still = yield* listAppPidsLive(entry)
+      if (still.length === 0) {
+        return true
+      }
+      yield* sleepMs(250)
+    }
+    const remaining = yield* listAppPidsLive(entry)
+    yield* Effect.forEach(
+      remaining,
+      (pid) =>
+        Effect.catch(
+          Effect.try({
+            try: () => {
+              process.kill(pid, "SIGKILL")
+            },
+            catch: (cause) => new WrapperRegistryError({ reason: "signal-kill", detail: String(cause) })
+          }),
+          () => Effect.void
+        ),
+      { discard: true }
+    )
+    yield* sleepMs(500)
+    const after = yield* listAppPidsLive(entry)
+    return after.length === 0
+  })
+
+const launchWrappedLive = (
+  entry: WrapperAppEntry,
+  overlayClass: string,
+  rewriterOverride: string | undefined,
+  logOverride: string | undefined
+): Effect.Effect<boolean, WrapperRegistryError> =>
+  Effect.gen(function* () {
+    const home = homedir()
+    const cwd = process.cwd()
+    const shim = resolveShimLive(home, cwd, rewriterOverride)
+    const target = yield* findBinaryLive(entry)
+    if (shim === null || target === null) {
+      return false
+    }
+    const share = yleulcShareDir(home)
+    const logPath = logOverride ?? rewriterLogPath(home)
+    yield* Effect.try({
+      try: () => mkdirSync(share, { recursive: true }),
+      catch: (cause) => new WrapperRegistryError({ reason: "mkdir-share", detail: String(cause) })
+    })
+    const installed = installedShimPath(home)
+    if (shim !== installed) {
+      yield* Effect.try({
+        try: () => copyFileSync(shim, installed),
+        catch: (cause) => new WrapperRegistryError({ reason: "copy-shim", detail: String(cause) })
+      })
+    }
+    const useShim = existsSync(installed) ? installed : shim
+    const launchEnv = {
+      ...process.env,
+      LD_PRELOAD: useShim,
+      YLEULC_OVERLAY_CLASS: overlayClass,
+      YLEULC_REWRITER_LOG: logPath,
+      ...entry.extraEnv
+    }
+    const launchFlags = [...entry.extraFlags]
+    yield* Effect.try({
+      try: () => {
+        const child = spawn(target, launchFlags, { env: launchEnv, detached: true, stdio: "ignore" })
+        child.unref()
+      },
+      catch: (cause) => new WrapperRegistryError({ reason: "spawn-app", detail: String(cause) })
+    })
+    return true
+  })
+
+const installEntryLive = (
+  entry: WrapperAppEntry,
+  overlayClass: string,
+  rewriterOverride: string | undefined,
+  logOverride: string | undefined
+): Effect.Effect<WrapperInstallResult, WrapperRegistryError> =>
+  Effect.gen(function* () {
+    const home = homedir()
+    const cwd = process.cwd()
+    const shim = resolveShimLive(home, cwd, rewriterOverride)
+    const wrapperPath = wrapperScriptPathFor(home, entry)
+    if (shim === null) {
+      return { ok: false, wrapperPath, shimPath: installedShimPath(home), targetBin: null, reason: "shim-missing" }
+    }
+    const target = yield* findBinaryLive(entry)
+    const targetBin = target ?? entry.binaries[0] ?? entry.id
+    const share = yleulcShareDir(home)
+    const binDir = yleulcBinDir(home)
+    const appsDir = yleulcAppsDir(home)
+    const logPath = logOverride ?? rewriterLogPath(home)
+    yield* Effect.try({
+      try: () => mkdirSync(share, { recursive: true }),
+      catch: (cause) => new WrapperRegistryError({ reason: "mkdir-share", detail: String(cause) })
+    })
+    yield* Effect.try({
+      try: () => mkdirSync(binDir, { recursive: true }),
+      catch: (cause) => new WrapperRegistryError({ reason: "mkdir-bin", detail: String(cause) })
+    })
+    yield* Effect.try({
+      try: () => mkdirSync(appsDir, { recursive: true }),
+      catch: (cause) => new WrapperRegistryError({ reason: "mkdir-apps", detail: String(cause) })
+    })
+    const installed = installedShimPath(home)
+    yield* Effect.try({
+      try: () => copyFileSync(shim, installed),
+      catch: (cause) => new WrapperRegistryError({ reason: "copy-shim", detail: String(cause) })
+    })
+    const script = buildAppWrapperScript({
+      shimPath: installed,
+      overlayClass,
+      logPath,
+      targetBin,
+      extraEnv: entry.extraEnv,
+      extraFlags: entry.extraFlags
+    })
+    yield* Effect.try({
+      try: () => writeFileSync(wrapperPath, script, { mode: 0o755 }),
+      catch: (cause) => new WrapperRegistryError({ reason: "write-wrapper", detail: String(cause) })
+    })
+    const desktopPath = desktopFilePathFor(home, entry)
+    const desktop = buildAppDesktopEntry({ wrapperPath, icon: entry.icon, label: entry.label, mimeType: entry.mimeType })
+    yield* Effect.try({
+      try: () => writeFileSync(desktopPath, desktop, { mode: 0o644 }),
+      catch: (cause) => new WrapperRegistryError({ reason: "write-desktop", detail: String(cause) })
+    })
+    return { ok: true, wrapperPath, shimPath: installed, targetBin: target }
+  })
+
+const readRewriterLogLive = (logOverride: string | undefined): Effect.Effect<string, WrapperRegistryError> =>
+  Effect.catch(
+    Effect.try({
+      try: () => readFileSync(logOverride ?? rewriterLogPath(homedir()), "utf8"),
+      catch: () => new WrapperRegistryError({ reason: "read-log" })
+    }),
+    () => Effect.succeed("")
+  )
+
+export class WrapperRegistry extends Context.Service<WrapperRegistry, WrapperRegistryShape>()("WrapperRegistry") {
+  static readonly Live = Layer.effect(
+    WrapperRegistry,
+    Effect.gen(function* () {
+      const overlayClass = yield* Config.withDefault(Config.String("YLEULC_OVERLAY_CLASS"), yleulcOverlayClassDefault)
+      const rewriterOverrideOption = yield* Config.option(Config.String("YLEULC_REWRITER_PATH"))
+      const logOverrideOption = yield* Config.option(Config.String("YLEULC_REWRITER_LOG"))
+      const rewriterOverride = Option.getOrUndefined(rewriterOverrideOption)
+      const logOverride = Option.getOrUndefined(logOverrideOption)
+      const listApps = (): ReadonlyArray<WrapperAppId> => listWrapperApps()
+      const getEntry = (id: WrapperAppId): WrapperAppEntry => getWrapperEntry(id)
+      const findBinary = (id: WrapperAppId): Effect.Effect<string | null, WrapperRegistryError> => findBinaryLive(getWrapperEntry(id))
+      const isRunning = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
+        Effect.map(listAppPidsLive(getWrapperEntry(id)), (pids) => pids.length > 0)
+      const quitApp = (id: WrapperAppId, timeoutMs?: number): Effect.Effect<boolean, WrapperRegistryError> =>
+        quitAppLive(getWrapperEntry(id), timeoutMs ?? getWrapperEntry(id).quitTimeoutMs)
+      const launchWrapped = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
+        launchWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+      const installEntry = (id: WrapperAppId): Effect.Effect<WrapperInstallResult, WrapperRegistryError> =>
+        installEntryLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+      const startWrapped = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
+        Effect.gen(function* () {
+          yield* installEntryLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+          yield* quitAppLive(getWrapperEntry(id), getWrapperEntry(id).quitTimeoutMs)
+          return yield* launchWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+        })
+      const readRewriterLog = (): Effect.Effect<string, WrapperRegistryError> => readRewriterLogLive(logOverride)
+      const checkHookEvidence = (pid: number): Effect.Effect<boolean, WrapperRegistryError> =>
+        Effect.map(readRewriterLogLive(logOverride), (logText) => findHookEvidence(logText, pid))
+      const checkRewriteEvidence = (): Effect.Effect<boolean, WrapperRegistryError> =>
+        Effect.map(readRewriterLogLive(logOverride), (logText) => findRewriteEvidence(logText))
+      const guidanceFor = (id: WrapperAppId): string => verificationGuidance(getWrapperEntry(id), logOverride ?? rewriterLogPath(homedir()))
+      return {
+        overlayClass,
+        listApps,
+        getEntry,
+        findBinary,
+        isRunning,
+        quitApp,
+        launchWrapped,
+        installEntry,
+        startWrapped,
+        readRewriterLog,
+        checkHookEvidence,
+        checkRewriteEvidence,
+        guidanceFor
+      }
+    })
+  )
+  static readonly Test = Layer.succeed(WrapperRegistry, {
+    overlayClass: yleulcOverlayClassDefault,
+    listApps: () => listWrapperApps(),
+    getEntry: (id: WrapperAppId) => getWrapperEntry(id),
+    findBinary: (id: WrapperAppId) => Effect.succeed(stubBinaryFor(id)),
+    isRunning: () => Effect.succeed(false),
+    quitApp: () => Effect.succeed(true),
+    launchWrapped: () => Effect.succeed(true),
+    installEntry: (id: WrapperAppId) =>
+      Effect.succeed({
+        ok: true,
+        wrapperPath: wrapperScriptPathFor("/tmp/yleulc-test", getWrapperEntry(id)),
+        shimPath: installedShimPath("/tmp/yleulc-test"),
+        targetBin: stubBinaryFor(id)
+      }),
+    startWrapped: () => Effect.succeed(true),
+    readRewriterLog: () => Effect.succeed(stubRewriterLog),
+    checkHookEvidence: (pid: number) => Effect.succeed(findHookEvidence(stubRewriterLog, pid)),
+    checkRewriteEvidence: () => Effect.succeed(findRewriteEvidence(stubRewriterLog)),
+    guidanceFor: (id: WrapperAppId) => verificationGuidance(getWrapperEntry(id), rewriterLogPath("/tmp/yleulc-test"))
+  })
 }
