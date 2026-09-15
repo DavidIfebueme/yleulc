@@ -35,19 +35,21 @@ import { ListenPanel } from "../listen/ListenPanel"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
+import { initialOverlayState } from "../../../shared/initialOverlayState"
 
 interface AskPanelProps {
   readonly activePromptModeId: string
+  readonly initialMode: "ask" | "listen"
   readonly onActivePromptModeChange: (modeId: string) => void
   readonly promptModes: ReadonlyArray<PromptMode>
   readonly settingsSaveError: string
 }
 
 export function AskPanel(props: AskPanelProps) {
-  const [listening, setListening] = useState(true)
+  const [listening, setListening] = useState(() => initialOverlayState(props.initialMode).listening)
   const [audioOn, setAudioOn] = useState(true)
   const [listenSeconds, setListenSeconds] = useState(0)
-  const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [transcriptOpen, setTranscriptOpen] = useState(() => initialOverlayState(props.initialMode).transcriptOpen)
   const [draft, setDraft] = useState("")
   const [exchanges, setExchanges] = useState<ReadonlyArray<AskAnswer>>(() => [
     answerAskQuestion("What should I say next?")

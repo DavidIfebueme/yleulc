@@ -34,6 +34,22 @@ export function ModesPrompts(props: ModesPromptsProps) {
   return (
     <div className="space-y-2">
       <label className="flex items-center justify-between gap-2 text-xs text-white/70">
+        <span>Default view</span>
+        <select
+          value={props.value.defaultMode}
+          onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+            props.onChange((value) => ({
+              ...value,
+              defaultMode: event.currentTarget.value === "listen" ? "listen" : "ask"
+            }))
+          }}
+          className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-white/90 outline-none"
+        >
+          <option value="ask">Ask</option>
+          <option value="listen">Live transcript</option>
+        </select>
+      </label>
+      <label className="flex items-center justify-between gap-2 text-xs text-white/70">
         <span>Default provider</span>
         <select
           value={props.value.defaultProviderId}
