@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
@@ -20,6 +20,15 @@ import { useAskStream } from "./useAskStream"
 import { AssistActions } from "../assist/AssistActions"
 import { AssistQuickChips } from "../assist/AssistQuickChips"
 import { AssistSubmitBar } from "../assist/AssistSubmitBar"
+import {
+  appendScreenshotAttachments,
+  attachmentImages,
+  createScreenshotAttachment,
+  removeScreenshotAttachment,
+  type ScreenshotAttachment
+} from "../capture/screenshotAttachments"
+import { isScreenshotBridgeAvailable, requestFullscreenCapture } from "../capture/ScreenshotGateway"
+import { ScreenshotTray } from "../capture/ScreenshotTray"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
@@ -37,6 +46,9 @@ export function AskPanel() {
   ])
   const [copied, setCopied] = useState(false)
   const [hidden, setHidden] = useState(false)
+  const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
+  const [captureError, setCaptureError] = useState("")
+  const attachCounter = useRef(0)
   const stream = useAskStream()
 
   useEffect(() => {
@@ -57,7 +69,7 @@ export function AskPanel() {
       return
     }
     if (isAskBridgeAvailable()) {
-      stream.ask(trimmed)
+      stream.ask(trimmed, attachmentImages(attachments))
       setDraft("")
       setCopied(false)
       return
@@ -78,7 +90,7 @@ export function AskPanel() {
 
   const answerChip = (chip: string): void => {
     if (isAskBridgeAvailable()) {
-      stream.ask(chip)
+      stream.ask(chip, attachmentImages(attachments))
       setDraft("")
       setCopied(false)
       return
@@ -86,6 +98,28 @@ export function AskPanel() {
     setExchanges((previous) => [...previous, answerAskQuestion(chip)])
     setDraft("")
     setCopied(false)
+  }
+
+  const removeAttachment = (id: string): void => {
+    setAttachments((previous) => removeScreenshotAttachment(previous, id))
+  }
+
+  const captureScreen = (): void => {
+    if (!isScreenshotBridgeAvailable()) {
+      setCaptureError("screenshots need the desktop app")
+      return
+    }
+    setCaptureError("")
+    void requestFullscreenCapture().then(
+      (image) => {
+        attachCounter.current = attachCounter.current + 1
+        const created = createScreenshotAttachment(`shot-${Date.now()}-${attachCounter.current}`, image)
+        setAttachments((previous) => appendScreenshotAttachments(previous, [created]))
+      },
+      () => {
+        setCaptureError("screen capture failed")
+      }
+    )
   }
 
   const tellMore = (): void => {
@@ -221,6 +255,19 @@ export function AskPanel() {
       </div>
       <div className="mt-2">
         <AssistQuickChips chips={assistQuickChips} onSelect={answerChip} />
+      </div>
+      <div className="mt-2">
+        <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
+        <div className="mt-1 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={captureScreen}
+            className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+          >
+            Capture screen
+          </button>
+          {captureError === "" ? null : <p className="text-[11px] text-red-300/80">{captureError}</p>}
+        </div>
       </div>
       <div className="mt-2">
         <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />

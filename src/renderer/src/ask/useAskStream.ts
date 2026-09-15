@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { AskEvent, AskTokenUsage } from "../../../shared/askIpc"
+import type { ScreenshotImage } from "../../../shared/screenshot"
 import { answerAskQuestion } from "./AskMockGateway"
 import { cancelAskRequest, isAskBridgeAvailable, sendAskRequest, subscribeAskEvents } from "./AskIpcGateway"
 
@@ -7,7 +8,7 @@ export type AskStreamStatus = "done" | "empty" | "error" | "idle" | "streaming"
 
 export interface UseAskStreamResult {
   readonly answer: string
-  readonly ask: (question: string) => void
+  readonly ask: (question: string, images?: ReadonlyArray<ScreenshotImage>) => void
   readonly errorMessage: string
   readonly question: string
   readonly retry: () => void
@@ -25,6 +26,7 @@ export function useAskStream(): UseAskStreamResult {
   const activeRequestId = useRef<string | undefined>(undefined)
   const answerRef = useRef("")
   const requestCounter = useRef(0)
+  const lastImages = useRef<ReadonlyArray<ScreenshotImage>>([])
 
   useEffect(() => {
     const handleEvent = (event: AskEvent): void => {
@@ -52,7 +54,7 @@ export function useAskStream(): UseAskStreamResult {
     return subscribeAskEvents(handleEvent)
   }, [])
 
-  const ask = (next: string): void => {
+  const ask = (next: string, images?: ReadonlyArray<ScreenshotImage>): void => {
     const trimmed = next.trim()
     if (trimmed === "") {
       return
@@ -61,6 +63,7 @@ export function useAskStream(): UseAskStreamResult {
     const requestId = `ask-${Date.now()}-${requestCounter.current}`
     activeRequestId.current = requestId
     answerRef.current = ""
+    lastImages.current = images ?? []
     setAnswer("")
     setErrorMessage("")
     setQuestion(trimmed)
@@ -74,7 +77,7 @@ export function useAskStream(): UseAskStreamResult {
       activeRequestId.current = undefined
       return
     }
-    void sendAskRequest({ question: trimmed, requestId }).then(
+    void sendAskRequest({ images: [...lastImages.current], question: trimmed, requestId }).then(
       () => {},
       () => {
         if (activeRequestId.current !== requestId) {
@@ -105,7 +108,7 @@ export function useAskStream(): UseAskStreamResult {
     if (question.trim() === "") {
       return
     }
-    ask(question)
+    ask(question, lastImages.current)
   }
 
   return { answer, ask, errorMessage, question, retry, status, stop, usage }
