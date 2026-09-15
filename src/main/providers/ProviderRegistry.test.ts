@@ -1,6 +1,11 @@
-import { Effect, Option, Stream } from "effect"
+import { ConfigProvider, Effect, Layer, Option, Stream } from "effect"
 import { describe, expect, it } from "vitest"
-import { ProviderRegistry } from "./ProviderRegistry"
+import {
+  isProviderMissing,
+  makeProviderRegistryWithMissing,
+  providerKeyEnvVars,
+  ProviderRegistry
+} from "./ProviderRegistry"
 import type { ChatRequest } from "./Provider"
 
 const chatRequest: ChatRequest = {
@@ -113,5 +118,87 @@ describe("ProviderRegistry", () => {
       { _tag: "text-delta", delta: " from the meeting" },
       { _tag: "done", finishReason: "stop" }
     ])
+  })
+  it("keeps test layers strict with no missing keys", async () => {
+    const registry = await Effect.runPromise(
+      Effect.provide(Effect.gen(function* () {
+        return yield* ProviderRegistry
+      }), ProviderRegistry.Test)
+    )
+    expect(registry.missingKeys).toEqual([])
+    expect(registry.providers.length).toBe(11)
+  })
+  it("boots live with zero keys and exposes absence per provider", async () => {
+    const configLayer = ConfigProvider.layer(ConfigProvider.fromEnvRecord({}))
+    const live = Layer.provide(ProviderRegistry.Live, configLayer)
+    const registry = await Effect.runPromise(
+      Effect.provide(Effect.gen(function* () {
+        return yield* ProviderRegistry
+      }), live)
+    )
+    expect(registry.providers.map((provider) => provider.id)).toEqual(["custom", "ollama"])
+    expect(registry.missingKeys).toEqual([
+      "anthropic",
+      "deepseek",
+      "gemini",
+      "groq",
+      "mistral",
+      "openai",
+      "openrouter",
+      "together",
+      "xai"
+    ])
+    expect(Option.isNone(registry.get("openai"))).toBe(true)
+    expect(Option.isNone(registry.get("anthropic"))).toBe(true)
+    expect(Option.isSome(registry.get("ollama"))).toBe(true)
+    expect(Option.isSome(registry.get("custom"))).toBe(true)
+    expect(isProviderMissing(registry, "openai")).toBe(true)
+    expect(isProviderMissing(registry, "ollama")).toBe(false)
+    expect(providerKeyEnvVars["openai"]).toBe("OPENAI_API_KEY")
+    expect(providerKeyEnvVars["ollama"]).toBeUndefined()
+    expect(providerKeyEnvVars["custom"]).toBeUndefined()
+  })
+  it("boots live with all keys and resolves every entry", async () => {
+    const configLayer = ConfigProvider.layer(
+      ConfigProvider.fromEnvRecord({
+        ANTHROPIC_API_KEY: "test-anthropic",
+        DEEPSEEK_API_KEY: "test-deepseek",
+        GEMINI_API_KEY: "test-gemini",
+        GROQ_API_KEY: "test-groq",
+        MISTRAL_API_KEY: "test-mistral",
+        OPENAI_API_KEY: "test-openai",
+        OPENROUTER_API_KEY: "test-openrouter",
+        TOGETHER_API_KEY: "test-together",
+        XAI_API_KEY: "test-xai"
+      })
+    )
+    const live = Layer.provide(ProviderRegistry.Live, configLayer)
+    const registry = await Effect.runPromise(
+      Effect.provide(Effect.gen(function* () {
+        return yield* ProviderRegistry
+      }), live)
+    )
+    expect(registry.providers.map((provider) => provider.id)).toEqual([
+      "anthropic",
+      "custom",
+      "deepseek",
+      "gemini",
+      "groq",
+      "mistral",
+      "ollama",
+      "openai",
+      "openrouter",
+      "together",
+      "xai"
+    ])
+    expect(registry.missingKeys).toEqual([])
+    expect(Option.isSome(registry.get("openai"))).toBe(true)
+    expect(Option.isSome(registry.get("anthropic"))).toBe(true)
+    expect(isProviderMissing(registry, "openai")).toBe(false)
+  })
+  it("builds absent registries through the missing constructor", () => {
+    const registry = makeProviderRegistryWithMissing([], ["openai"])
+    expect(Option.isNone(registry.get("openai"))).toBe(true)
+    expect(isProviderMissing(registry, "openai")).toBe(true)
   })
 })
