@@ -46,7 +46,15 @@ YLEULC_OVERLAY_CLASS="yleulc-verify-overlay" \
 "$repo_root/native/capture-rewriter/wrap-binary.sh" "$work_dir/capture" "$work_dir/rewritten.ppm"
 
 pixel_hex() {
-  dd if="$1" bs=1 skip="$((15 + (250 * 1280 + 360) * 3))" count=3 status=none | od -An -tx1 | tr -d ' \n'
+  header_size="$(
+    {
+      IFS= read -r magic
+      IFS= read -r dimensions
+      IFS= read -r maximum
+      printf '%s\n%s\n%s\n' "$magic" "$dimensions" "$maximum"
+    } < "$1" | wc -c
+  )"
+  dd if="$1" bs=1 skip="$((header_size + (250 * 1280 + 360) * 3))" count=3 status=none | od -An -tx1 | tr -d ' \n'
 }
 
 test "$(pixel_hex "$work_dir/raw.ppm")" = "ff00ff"
