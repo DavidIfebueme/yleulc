@@ -3,9 +3,15 @@ import { Data, Schema, type Effect, type Stream } from "effect"
 export const ProviderIdSchema = Schema.Union([
   Schema.Literal("anthropic"),
   Schema.Literal("custom"),
+  Schema.Literal("deepseek"),
   Schema.Literal("gemini"),
+  Schema.Literal("groq"),
+  Schema.Literal("mistral"),
   Schema.Literal("ollama"),
-  Schema.Literal("openai")
+  Schema.Literal("openai"),
+  Schema.Literal("openrouter"),
+  Schema.Literal("together"),
+  Schema.Literal("xai")
 ])
 
 export type ProviderId = typeof ProviderIdSchema.Type
