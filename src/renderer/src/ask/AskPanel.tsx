@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react"
-import { coreQuickActionIntents, recapBrainstormIntents } from "../../../shared/askIntents"
+import { quickActionIntents } from "../../../shared/askIntents"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
   answerAskQuestion,
   askPreviousQuestions,
-  extendAskAnswer,
-  mockTranscriptSegments
+  extendAskAnswer
 } from "./AskMockGateway"
 import { AskAnswerBullets } from "./AskAnswerBullets"
 import {
@@ -32,10 +31,10 @@ import {
 } from "../capture/screenshotAttachments"
 import { isScreenshotBridgeAvailable, requestFullscreenCapture } from "../capture/ScreenshotGateway"
 import { ScreenshotTray } from "../capture/ScreenshotTray"
+import { ListenPanel } from "../listen/ListenPanel"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
-import { TranscriptView } from "../transcript/TranscriptView"
 
 export function AskPanel() {
   const [listening, setListening] = useState(true)
@@ -55,8 +54,24 @@ export function AskPanel() {
   const attachCounter = useRef(0)
   const stream = useAskStream()
 
-  const askWithMode = (question: string): void => {
-    stream.ask(question, attachmentImages(attachments), promptForCluelyMode(promptModeId, smartMode))
+  const askWithMode = (question: string, images = attachmentImages(attachments)): void => {
+    stream.ask(question, images, promptForCluelyMode(promptModeId, smartMode))
+  }
+
+  const getAnswerFromScreen = (): void => {
+    if (!isScreenshotBridgeAvailable()) {
+      setCaptureError("screen answers need the desktop app")
+      return
+    }
+    setCaptureError("")
+    void requestFullscreenCapture().then(
+      (image) => {
+        askWithMode("Analyze the current screen and give the user the answer they need.", [image])
+      },
+      () => {
+        setCaptureError("screen capture failed")
+      }
+    )
   }
 
   useEffect(() => {
@@ -92,7 +107,8 @@ export function AskPanel() {
       onToggleVisibility: () => {
         setHidden((value) => !value)
       },
-      onSubmit: submitDraft
+      onSubmit: submitDraft,
+      onGetAnswer: getAnswerFromScreen
     })
   })
 
@@ -206,8 +222,10 @@ export function AskPanel() {
           }}
         />
       </div>
-      <>
-          {transcriptOpen ? <TranscriptView segments={mockTranscriptSegments} /> : null}
+      {transcriptOpen ? (
+        <ListenPanel />
+      ) : (
+        <>
           <div className="mt-2 space-y-3">
             {exchanges.map((exchange, index) => (
               <div key={`${index}-${exchange.question}`} className="space-y-1.5">
@@ -259,20 +277,9 @@ export function AskPanel() {
           </div>
           <div className="mt-2">
             <AssistQuickChips
-              chips={coreQuickActionIntents.map((intent) => intent.label)}
+              chips={quickActionIntents.map((intent) => intent.label)}
               onSelect={(label) => {
-                const selected = coreQuickActionIntents.find((intent) => intent.label === label)
-                if (selected !== undefined) {
-                  answerChip(selected.question)
-                }
-              }}
-            />
-          </div>
-          <div className="mt-2">
-            <AssistQuickChips
-              chips={recapBrainstormIntents.filter((intent) => intent.id === "recap").map((intent) => intent.label)}
-              onSelect={(label) => {
-                const selected = recapBrainstormIntents.find((intent) => intent.label === label)
+                const selected = quickActionIntents.find((intent) => intent.label === label)
                 if (selected !== undefined) {
                   answerChip(selected.question)
                 }
@@ -315,7 +322,8 @@ export function AskPanel() {
           <div className="mt-2">
             <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />
           </div>
-      </>
+        </>
+      )}
     </div>
   )
 }

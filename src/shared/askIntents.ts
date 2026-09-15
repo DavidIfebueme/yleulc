@@ -5,8 +5,7 @@ export const QuickActionIntentSchema = Schema.Union([
   Schema.Literal("follow-ups"),
   Schema.Literal("who-talking"),
   Schema.Literal("fact-check"),
-  Schema.Literal("recap"),
-  Schema.Literal("brainstorm")
+  Schema.Literal("recap")
 ])
 
 export type QuickActionIntent = typeof QuickActionIntentSchema.Type
@@ -18,21 +17,12 @@ export interface QuickActionIntentDef {
 }
 
 export const quickActionIntents: ReadonlyArray<QuickActionIntentDef> = [
-  { id: "say-next", label: "What to say next", question: "What should I say next?" },
-  { id: "follow-ups", label: "Follow-ups", question: "What follow-up questions should I ask?" },
+  { id: "say-next", label: "What should I say next", question: "What should I say next?" },
+  { id: "follow-ups", label: "Follow up questions", question: "What follow-up questions should I ask?" },
   { id: "who-talking", label: "Who am I talking to", question: "Who am I talking to and what do they care about?" },
-  { id: "fact-check", label: "Fact-check", question: "Fact-check the last claim from the transcript." },
-  { id: "recap", label: "Recap", question: "Recap the meeting so far in three bullets." },
-  { id: "brainstorm", label: "Brainstorm", question: "Brainstorm three angles I can take next." }
+  { id: "fact-check", label: "Fact check", question: "Fact-check the last claim from the transcript." },
+  { id: "recap", label: "Recap", question: "Recap the meeting so far in three bullets." }
 ]
-
-export const coreQuickActionIntents: ReadonlyArray<QuickActionIntentDef> = quickActionIntents.filter(
-  (intent) => intent.id !== "recap" && intent.id !== "brainstorm"
-)
-
-export const recapBrainstormIntents: ReadonlyArray<QuickActionIntentDef> = quickActionIntents.filter(
-  (intent) => intent.id === "recap" || intent.id === "brainstorm"
-)
 
 export function intentQuestion(intent: QuickActionIntent): string {
   for (const def of quickActionIntents) {
