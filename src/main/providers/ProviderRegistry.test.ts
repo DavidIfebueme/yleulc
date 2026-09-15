@@ -9,7 +9,7 @@ const chatRequest: ChatRequest = {
 }
 
 describe("ProviderRegistry", () => {
-  it("resolves anthropic, custom, gemini, ollama, and openai entries", async () => {
+  it("resolves all eleven curated entries", async () => {
     const program = Effect.gen(function* () {
       const registry = yield* ProviderRegistry
       return registry
@@ -18,9 +18,15 @@ describe("ProviderRegistry", () => {
     expect(registry.providers.map((provider) => provider.id)).toEqual([
       "anthropic",
       "custom",
+      "deepseek",
       "gemini",
+      "groq",
+      "mistral",
       "ollama",
-      "openai"
+      "openai",
+      "openrouter",
+      "together",
+      "xai"
     ])
   })
   it("looks up each entry by id", async () => {
@@ -35,23 +41,62 @@ describe("ProviderRegistry", () => {
     const ollama = registry.get("ollama")
     const custom = registry.get("custom")
     expect(Option.isSome(anthropic)).toBe(true)
+    const groq = registry.get("groq")
+    const openrouter = registry.get("openrouter")
+    const together = registry.get("together")
+    const deepseek = registry.get("deepseek")
+    const xai = registry.get("xai")
+    const mistral = registry.get("mistral")
     expect(Option.isSome(openai)).toBe(true)
     expect(Option.isSome(gemini)).toBe(true)
     expect(Option.isSome(ollama)).toBe(true)
     expect(Option.isSome(custom)).toBe(true)
+    expect(Option.isSome(groq)).toBe(true)
+    expect(Option.isSome(openrouter)).toBe(true)
+    expect(Option.isSome(together)).toBe(true)
+    expect(Option.isSome(deepseek)).toBe(true)
+    expect(Option.isSome(xai)).toBe(true)
+    expect(Option.isSome(mistral)).toBe(true)
     if (
       Option.isSome(anthropic) &&
       Option.isSome(openai) &&
       Option.isSome(gemini) &&
       Option.isSome(ollama) &&
-      Option.isSome(custom)
+      Option.isSome(custom) &&
+      Option.isSome(groq) &&
+      Option.isSome(openrouter) &&
+      Option.isSome(together) &&
+      Option.isSome(deepseek) &&
+      Option.isSome(xai) &&
+      Option.isSome(mistral)
     ) {
       expect(anthropic.value.displayName).toBe("Anthropic")
       expect(openai.value.displayName).toBe("OpenAI")
       expect(gemini.value.displayName).toBe("Gemini")
       expect(ollama.value.displayName).toBe("Ollama")
       expect(custom.value.displayName).toBe("Custom")
+      expect(groq.value.displayName).toBe("Groq")
+      expect(openrouter.value.displayName).toBe("OpenRouter")
+      expect(together.value.displayName).toBe("Together")
+      expect(deepseek.value.displayName).toBe("DeepSeek")
+      expect(xai.value.displayName).toBe("xAI")
+      expect(mistral.value.displayName).toBe("Mistral")
     }
+  })
+  it("exposes correct vision flags for curated entries", async () => {
+    const program = Effect.gen(function* () {
+      const registry = yield* ProviderRegistry
+      return registry
+    })
+    const registry = await Effect.runPromise(Effect.provide(program, ProviderRegistry.Test))
+    const visionById = new Map(registry.providers.map((provider) => [provider.id, provider.visionModels] as const))
+    expect(visionById.get("custom")).toEqual([])
+    expect((visionById.get("groq") ?? []).length).toBeGreaterThan(0)
+    expect((visionById.get("openrouter") ?? []).length).toBeGreaterThan(0)
+    expect((visionById.get("together") ?? []).length).toBeGreaterThan(0)
+    expect((visionById.get("deepseek") ?? []).length).toBeGreaterThan(0)
+    expect((visionById.get("xai") ?? []).length).toBeGreaterThan(0)
+    expect((visionById.get("mistral") ?? []).length).toBeGreaterThan(0)
   })
   it("streams chat through a registry entry", async () => {
     const program = Effect.gen(function* () {
