@@ -1,8 +1,10 @@
 import { Data, Schema, type Effect, type Stream } from "effect"
 
 export const ProviderIdSchema = Schema.Union([
+  Schema.Literal("anthropic"),
   Schema.Literal("custom"),
   Schema.Literal("gemini"),
+  Schema.Literal("ollama"),
   Schema.Literal("openai")
 ])
 
