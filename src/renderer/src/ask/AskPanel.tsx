@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from "react"
+import { coreQuickActionIntents, recapBrainstormIntents } from "../../../shared/askIntents"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
   answerAskQuestion,
   askPreviousQuestions,
-  assistQuickChips,
   extendAskAnswer,
   mockTranscriptSegments
 } from "./AskMockGateway"
 import { AskAnswerBullets } from "./AskAnswerBullets"
+import {
+  CluelyPromptModeSelect,
+  promptForCluelyMode,
+  type CluelyPromptModeId
+} from "./CluelyPromptModeSelect"
 import { AskErrorCard } from "./AskErrorCard"
 import { AskHistoryChips } from "./AskHistoryChips"
 import { AskInput } from "./AskInput"
 import { isAskBridgeAvailable } from "./AskIpcGateway"
-import { AskModeSelect } from "./AskModeSelect"
-import type { AskMode } from "./AskModeSelect"
 import { AskQuestionBubble } from "./AskQuestionBubble"
 import { useAskStream } from "./useAskStream"
 import { AssistActions } from "../assist/AssistActions"
@@ -29,14 +32,12 @@ import {
 } from "../capture/screenshotAttachments"
 import { isScreenshotBridgeAvailable, requestFullscreenCapture } from "../capture/ScreenshotGateway"
 import { ScreenshotTray } from "../capture/ScreenshotTray"
-import { ListenPanel } from "../listen/ListenPanel"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
 import { TranscriptView } from "../transcript/TranscriptView"
 
 export function AskPanel() {
-  const [mode, setMode] = useState<AskMode>("ask")
   const [listening, setListening] = useState(true)
   const [audioOn, setAudioOn] = useState(true)
   const [listenSeconds, setListenSeconds] = useState(0)
@@ -49,8 +50,14 @@ export function AskPanel() {
   const [hidden, setHidden] = useState(false)
   const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
   const [captureError, setCaptureError] = useState("")
+  const [promptModeId, setPromptModeId] = useState<CluelyPromptModeId>("general")
+  const [smartMode, setSmartMode] = useState(false)
   const attachCounter = useRef(0)
   const stream = useAskStream()
+
+  const askWithMode = (question: string): void => {
+    stream.ask(question, attachmentImages(attachments), promptForCluelyMode(promptModeId, smartMode))
+  }
 
   useEffect(() => {
     if (listening === false) {
@@ -70,7 +77,7 @@ export function AskPanel() {
       return
     }
     if (isAskBridgeAvailable()) {
-      stream.ask(trimmed, attachmentImages(attachments))
+      askWithMode(trimmed)
       setDraft("")
       setCopied(false)
       return
@@ -91,7 +98,7 @@ export function AskPanel() {
 
   const answerChip = (chip: string): void => {
     if (isAskBridgeAvailable()) {
-      stream.ask(chip, attachmentImages(attachments))
+      askWithMode(chip)
       setDraft("")
       setCopied(false)
       return
@@ -160,11 +167,6 @@ export function AskPanel() {
     )
   }
 
-  const changeMode = (next: AskMode): void => {
-    setMode(next)
-    setListening(next === "listen")
-  }
-
   if (hidden) {
     return (
       <button
@@ -196,20 +198,15 @@ export function AskPanel() {
         }}
       />
       <div className="mt-2 flex items-center justify-between">
-        <AskModeSelect mode={mode} onModeChange={changeMode} />
-        {mode === "ask" ? (
-          <TranscriptToggle
-            open={transcriptOpen}
-            onToggle={() => {
-              setTranscriptOpen((value) => !value)
-            }}
-          />
-        ) : null}
+        <CluelyPromptModeSelect modeId={promptModeId} onModeChange={setPromptModeId} />
+        <TranscriptToggle
+          open={transcriptOpen}
+          onToggle={() => {
+            setTranscriptOpen((value) => !value)
+          }}
+        />
       </div>
-      {mode === "listen" ? (
-        <ListenPanel />
-      ) : (
-        <>
+      <>
           {transcriptOpen ? <TranscriptView segments={mockTranscriptSegments} /> : null}
           <div className="mt-2 space-y-3">
             {exchanges.map((exchange, index) => (
@@ -261,7 +258,26 @@ export function AskPanel() {
             <AssistActions onTellMore={tellMore} onCopy={copyAnswer} copied={copied} />
           </div>
           <div className="mt-2">
-            <AssistQuickChips chips={assistQuickChips} onSelect={answerChip} />
+            <AssistQuickChips
+              chips={coreQuickActionIntents.map((intent) => intent.label)}
+              onSelect={(label) => {
+                const selected = coreQuickActionIntents.find((intent) => intent.label === label)
+                if (selected !== undefined) {
+                  answerChip(selected.question)
+                }
+              }}
+            />
+          </div>
+          <div className="mt-2">
+            <AssistQuickChips
+              chips={recapBrainstormIntents.filter((intent) => intent.id === "recap").map((intent) => intent.label)}
+              onSelect={(label) => {
+                const selected = recapBrainstormIntents.find((intent) => intent.label === label)
+                if (selected !== undefined) {
+                  answerChip(selected.question)
+                }
+              }}
+            />
           </div>
           <div className="mt-2">
             <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
@@ -277,6 +293,20 @@ export function AskPanel() {
             </div>
           </div>
           <div className="mt-2">
+            <button
+              type="button"
+              aria-pressed={smartMode}
+              onClick={() => {
+                setSmartMode((value) => !value)
+              }}
+              className={`mb-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
+                smartMode
+                  ? "border-violet-300/50 bg-violet-400/20 text-violet-100"
+                  : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+              }`}
+            >
+              Smart Mode
+            </button>
             <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
           </div>
           <div className="mt-2">
@@ -285,8 +315,7 @@ export function AskPanel() {
           <div className="mt-2">
             <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />
           </div>
-        </>
-      )}
+      </>
     </div>
   )
 }
