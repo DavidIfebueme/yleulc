@@ -1,0 +1,1 @@
+export const mistralModelList = `{"object":"list","data":[{"id":"mistral-large-latest","object":"model","created":1726400000,"owned_by":"mistral"},{"id":"mistral-small-latest","object":"model","created":1726400000,"owned_by":"mistral"}]}`
