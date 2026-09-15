@@ -20,6 +20,20 @@ Yleulc: Linux-first invisible AI meeting overlay. Electron + React + TypeScript 
 - Tests: every main-process service ships with Effect TestLayers plus vitest specs. No network calls in tests.
 - Read CONTEXT.md and the ADRs under docs/adr touching your area before changing code. Use the glossary terms exactly.
 
+## Parallel agents
+
+- Never switch branches in /home/sable/yleulc. Work in an isolated worktree: `git worktree add /tmp/opencode/<slug> -b agent/<slug> main`.
+- After any checkout, assert `test "$(git branch --show-current)" = "<expected>"` before committing. Never trust chained commands across branch operations.
+- Commit locally only, never push. Leave the worktree in place and report its path. Only the orchestrator merges to main and pushes.
+
+## Effect v4 RC notes (4.0.0-rc.115)
+
+- Error catch-all is `Effect.catch`, not `catchAll`. `Config` constructors are PascalCase (`Config.String`).
+- `Schema.decodeUnknownEffect`, `Schema.Union` takes an array. No `Effect.either`, `Effect.async`, `Effect.zipRight`, or `Effect.fork`; use `flip`, `tryPromise`, `andThen`, `runFork`.
+- Tests needing config must merge a `ConfigProvider` layer into the program layers.
+- `Effect.ensuring` and `Stream.ensuring` finalizers must be infallible; wrap fallible cleanup with `Effect.ignore`.
+- Pin exact versions everywhere. One lockfile.
+
 ## Agent skills
 
 ### Issue tracker
