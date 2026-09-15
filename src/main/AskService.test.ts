@@ -48,6 +48,17 @@ describe("AskService", () => {
       model: "gpt-4o"
     })
   })
+  it("places a selected mode prompt before the user question", () => {
+    expect(
+      toChatRequest({ ...askRequest, systemPrompt: "Coach a sales call with concise next steps." })
+    ).toEqual({
+      messages: [
+        { images: [], role: "system", text: "Coach a sales call with concise next steps." },
+        { images: [], role: "user", text: "What should I say next?" }
+      ],
+      model: "gpt-4o"
+    })
+  })
   it("defaults the provider to openai when unspecified", () => {
     expect(resolveAskProviderId({ question: "hi", requestId: "ask-002" })).toBe("openai")
   })

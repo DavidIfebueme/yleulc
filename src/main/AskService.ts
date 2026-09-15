@@ -14,8 +14,10 @@ export interface AskServiceShape {
 }
 
 export function toChatRequest(request: AskRequest): ChatRequest {
+  const systemPrompt = request.systemPrompt?.trim()
   return {
     messages: [
+      ...(systemPrompt === undefined || systemPrompt === "" ? [] : [{ images: [], role: "system" as const, text: systemPrompt }]),
       {
         images: (request.images ?? []).map((image) => ({ base64: image.base64, mimeType: image.mimeType })),
         role: "user",

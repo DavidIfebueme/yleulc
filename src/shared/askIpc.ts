@@ -34,7 +34,8 @@ export const AskRequestSchema = Schema.Struct({
   model: Schema.optional(Schema.String),
   providerId: Schema.optional(AskProviderIdSchema),
   question: Schema.String,
-  requestId: Schema.String
+  requestId: Schema.String,
+  systemPrompt: Schema.optional(Schema.String)
 })
 
 export type AskRequest = typeof AskRequestSchema.Type
