@@ -156,6 +156,41 @@ describe("SettingsStore", () => {
     expect(await readdir(directory)).toEqual(["settings.json"])
     await rm(directory, { force: true, recursive: true })
   })
+  it("durably replaces settings without leaving a temporary file", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
+    const path = join(directory, "settings.json")
+    const first = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "first" }
+    }
+    const second = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "second" }
+    }
+    await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          yield* store.setSnapshot(first)
+          yield* store.setSnapshot(second)
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    const restored = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* store.getSnapshot()
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    expect(restored).toEqual(second)
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual(second)
+    expect(await readdir(directory)).toEqual(["settings.json"])
+    await rm(directory, { force: true, recursive: true })
+  })
   it("keeps the prior snapshot when a file write fails", async () => {
     const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
     const result = await Effect.runPromise(

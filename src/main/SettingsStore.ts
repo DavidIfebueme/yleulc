@@ -1,7 +1,7 @@
 import { app } from "electron"
 import { Config, Context, Data, Effect, Layer, Option, Ref, Schema, Semaphore } from "effect"
-import { readFile, rename, unlink, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { open, readFile, rename, unlink } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { randomUUID } from "node:crypto"
 import { defaultKeybinds } from "../shared/keybinds"
 import type { KeybindAction, KeybindMap } from "../shared/keybinds"
@@ -95,6 +95,29 @@ function loadSettings(path: string, fallback: SettingsSnapshot): Effect.Effect<S
   )
 }
 
+function doesNotSupportDirectorySync(cause: unknown): boolean {
+  return (
+    cause instanceof Error &&
+    "code" in cause &&
+    (cause.code === "EISDIR" || cause.code === "EINVAL" || cause.code === "ENOTSUP")
+  )
+}
+
+function syncParentDirectory(path: string): Promise<void> {
+  return open(dirname(path), "r")
+    .then((directory) => directory.sync().finally(() => directory.close()))
+    .catch((cause: unknown) => (doesNotSupportDirectorySync(cause) ? undefined : Promise.reject(cause)))
+}
+
+function writeAndSyncTemporaryFile(path: string, content: string): Promise<void> {
+  return open(path, "w").then((temporary) =>
+    temporary
+      .writeFile(content, "utf8")
+      .then(() => temporary.sync())
+      .finally(() => temporary.close())
+  )
+}
+
 function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect.Effect<SettingsStoreShape> {
   return Effect.gen(function* () {
     const initial = yield* loadSettings(path, fallback)
@@ -103,12 +126,18 @@ function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect
     const save = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> => {
       const temporaryPath = `${path}.${randomUUID()}.tmp`
       return Effect.tryPromise({
-        try: () => writeFile(temporaryPath, JSON.stringify(snapshot), "utf8"),
+        try: () => writeAndSyncTemporaryFile(temporaryPath, JSON.stringify(snapshot)),
         catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
       }).pipe(
         Effect.andThen(() =>
           Effect.tryPromise({
             try: () => rename(temporaryPath, path),
+            catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
+          })
+        ),
+        Effect.andThen(() =>
+          Effect.tryPromise({
+            try: () => syncParentDirectory(path),
             catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
           })
         ),

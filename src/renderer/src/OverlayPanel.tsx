@@ -5,7 +5,9 @@ import { AskPanel } from "./ask/AskPanel"
 import { SettingsDashboard } from "./settings/SettingsDashboard"
 
 export function OverlayPanel() {
-  const [settings, setSettings] = useState<SettingsSnapshot>(defaultSettingsSnapshot)
+  const [settings, setSettings] = useState<SettingsSnapshot | undefined>(() =>
+    typeof window.yleulc === "undefined" ? defaultSettingsSnapshot : undefined
+  )
   const [settingsSaveError, setSettingsSaveError] = useState("")
   const [showSettings, setShowSettings] = useState(false)
   const saveQueue = useRef(
@@ -58,19 +60,31 @@ export function OverlayPanel() {
           </button>
         </div>
         {showSettings ? (
-          <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
+          settings === undefined ? (
+            <p className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
+              {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
+            </p>
+          ) : (
+            <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
+          )
         ) : (
-          <AskPanel
-            activePromptModeId={settings.modesPrompts.activePromptModeId}
-            settingsSaveError={settingsSaveError}
-            promptModes={settings.modesPrompts.promptModes}
-            onActivePromptModeChange={(activePromptModeId) => {
-              saveSettings((snapshot) => ({
-                ...snapshot,
-                modesPrompts: { ...snapshot.modesPrompts, activePromptModeId }
-              }))
-            }}
-          />
+          settings === undefined ? (
+            <p className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
+              {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
+            </p>
+          ) : (
+            <AskPanel
+              activePromptModeId={settings.modesPrompts.activePromptModeId}
+              settingsSaveError={settingsSaveError}
+              promptModes={settings.modesPrompts.promptModes}
+              onActivePromptModeChange={(activePromptModeId) => {
+                saveSettings((snapshot) => ({
+                  ...snapshot,
+                  modesPrompts: { ...snapshot.modesPrompts, activePromptModeId }
+                }))
+              }}
+            />
+          )
         )}
       </div>
     </div>
