@@ -1,0 +1,1 @@
+export const groqModelList = `{"object":"list","data":[{"id":"qwen/qwen3.6-27b","object":"model","created":1726400000,"owned_by":"groq"},{"id":"qwen/qwen3.8-27b","object":"model","created":1726400000,"owned_by":"groq"}]}`
