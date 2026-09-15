@@ -1,0 +1,1 @@
+export const togetherModelList = `{"object":"list","data":[{"id":"Qwen/Qwen3.5-9B","object":"model","created":1726400000,"owned_by":"together"},{"id":"google/gemma-4-31B-it","object":"model","created":1726400000,"owned_by":"together"}]}`
