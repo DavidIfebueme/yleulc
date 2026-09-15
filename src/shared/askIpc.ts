@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { ScreenshotImageSchema } from "./screenshot"
 
 export const askRequestChannel = "yleulc:ask-request"
 
@@ -29,6 +30,7 @@ export const AskTokenUsageSchema = Schema.Struct({
 export type AskTokenUsage = typeof AskTokenUsageSchema.Type
 
 export const AskRequestSchema = Schema.Struct({
+  images: Schema.optional(Schema.Array(ScreenshotImageSchema)),
   model: Schema.optional(Schema.String),
   providerId: Schema.optional(AskProviderIdSchema),
   question: Schema.String,

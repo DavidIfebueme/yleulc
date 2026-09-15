@@ -15,7 +15,13 @@ export interface AskServiceShape {
 
 export function toChatRequest(request: AskRequest): ChatRequest {
   return {
-    messages: [{ images: [], role: "user", text: request.question }],
+    messages: [
+      {
+        images: (request.images ?? []).map((image) => ({ base64: image.base64, mimeType: image.mimeType })),
+        role: "user",
+        text: request.question
+      }
+    ],
     model: request.model ?? defaultAskModel
   }
 }
