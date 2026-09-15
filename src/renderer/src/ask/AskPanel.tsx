@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import type { AskAnswer } from "./AskMockGateway"
 import {
   answerAskQuestion,
@@ -8,11 +9,14 @@ import {
   mockTranscriptSegments
 } from "./AskMockGateway"
 import { AskAnswerBullets } from "./AskAnswerBullets"
+import { AskErrorCard } from "./AskErrorCard"
 import { AskHistoryChips } from "./AskHistoryChips"
 import { AskInput } from "./AskInput"
+import { isAskBridgeAvailable } from "./AskIpcGateway"
 import { AskModeSelect } from "./AskModeSelect"
 import type { AskMode } from "./AskModeSelect"
 import { AskQuestionBubble } from "./AskQuestionBubble"
+import { useAskStream } from "./useAskStream"
 import { AssistActions } from "../assist/AssistActions"
 import { AssistQuickChips } from "../assist/AssistQuickChips"
 import { AssistSubmitBar } from "../assist/AssistSubmitBar"
@@ -33,6 +37,7 @@ export function AskPanel() {
   ])
   const [copied, setCopied] = useState(false)
   const [hidden, setHidden] = useState(false)
+  const stream = useAskStream()
 
   useEffect(() => {
     if (listening === false) {
@@ -51,6 +56,12 @@ export function AskPanel() {
     if (trimmed === "") {
       return
     }
+    if (isAskBridgeAvailable()) {
+      stream.ask(trimmed)
+      setDraft("")
+      setCopied(false)
+      return
+    }
     setExchanges((previous) => [...previous, answerAskQuestion(trimmed)])
     setDraft("")
     setCopied(false)
@@ -66,6 +77,12 @@ export function AskPanel() {
   })
 
   const answerChip = (chip: string): void => {
+    if (isAskBridgeAvailable()) {
+      stream.ask(chip)
+      setDraft("")
+      setCopied(false)
+      return
+    }
     setExchanges((previous) => [...previous, answerAskQuestion(chip)])
     setDraft("")
     setCopied(false)
@@ -82,6 +99,18 @@ export function AskPanel() {
   }
 
   const copyAnswer = (): void => {
+    const streamed = stream.answer.trim()
+    if (isAskBridgeAvailable() && streamed !== "") {
+      void navigator.clipboard.writeText(streamed).then(
+        () => {
+          setCopied(true)
+        },
+        () => {
+          setCopied(false)
+        }
+      )
+      return
+    }
     const last = exchanges[exchanges.length - 1]
     if (last === undefined) {
       return
@@ -149,6 +178,44 @@ export function AskPanel() {
           </div>
         ))}
       </div>
+      {stream.question === "" ? null : (
+        <div className="mt-2 space-y-1.5">
+          <AskQuestionBubble question={stream.question} />
+          {stream.status === "streaming" && stream.answer.trim() === "" ? (
+            <p className="text-xs text-white/50">Streaming answer…</p>
+          ) : null}
+          {stream.answer.trim() === "" ? null : <AskAnswerBullets bullets={toAskBullets(stream.answer)} />}
+          {stream.status === "streaming" ? (
+            <button
+              type="button"
+              onClick={stream.stop}
+              className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+            >
+              Stop
+            </button>
+          ) : null}
+          {stream.status === "error" ? (
+            <AskErrorCard message={stream.errorMessage} onRetry={stream.retry} />
+          ) : null}
+          {stream.status === "empty" ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-sm text-white/70">{emptyAskFallback}</p>
+              <button
+                type="button"
+                onClick={stream.retry}
+                className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+          {stream.usage !== undefined ? (
+            <p className="text-[11px] text-white/40">
+              {`${stream.usage.promptTokens} prompt · ${stream.usage.completionTokens} completion`}
+            </p>
+          ) : null}
+        </div>
+      )}
       <div className="mt-2">
         <AssistActions onTellMore={tellMore} onCopy={copyAnswer} copied={copied} />
       </div>
