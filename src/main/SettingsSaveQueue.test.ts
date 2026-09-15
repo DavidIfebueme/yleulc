@@ -3,7 +3,7 @@ import { defaultSettingsSnapshot } from "../shared/settingsIpc"
 import { makeSettingsSaveQueue } from "../shared/settingsSaveQueue"
 
 describe("SettingsSaveQueue", () => {
-  it("derives queued edits from the preceding acknowledged snapshot", async () => {
+  it("composes rapid model then system prompt edits from the preceding acknowledged snapshot", async () => {
     let releaseFirst: (() => void) | undefined
     const firstWrite = new Promise<void>((resolve) => {
       releaseFirst = resolve
@@ -40,6 +40,28 @@ describe("SettingsSaveQueue", () => {
         }
       }
     ])
+  })
+
+  it("keeps an in-flight save queue during hydration", async () => {
+    let releaseWrite: (() => void) | undefined
+    const write = new Promise<void>((resolve) => {
+      releaseWrite = resolve
+    })
+    const queue = makeSettingsSaveQueue(defaultSettingsSnapshot, async (snapshot) => {
+      await write
+      return snapshot
+    })
+    const save = queue.enqueue((snapshot) => ({
+      ...snapshot,
+      modesPrompts: { ...snapshot.modesPrompts, activePromptModeId: "sales" }
+    }))
+    queue.hydrate({
+      ...defaultSettingsSnapshot,
+      modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, activePromptModeId: "general", systemPrompt: "hydrated" }
+    })
+    releaseWrite?.()
+    await save
+    expect(queue.current().modesPrompts).toMatchObject({ activePromptModeId: "sales", systemPrompt: "" })
   })
 
   it("keeps the acknowledged active prompt mode when a save fails", async () => {

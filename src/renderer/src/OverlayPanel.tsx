@@ -21,9 +21,7 @@ export function OverlayPanel() {
     void window.yleulc.getSettings().then(
       (snapshot) => {
         setSettings(snapshot)
-        saveQueue.current = makeSettingsSaveQueue(snapshot, (next) =>
-          typeof window.yleulc === "undefined" ? Promise.resolve(next) : window.yleulc.saveSettings(next)
-        )
+        saveQueue.current.hydrate(snapshot)
         setSettingsSaveError("")
       },
       () => {

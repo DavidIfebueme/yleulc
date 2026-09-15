@@ -32,8 +32,8 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
     <>
       <SettingsPanel
         modesPrompts={props.settings.modesPrompts}
-        onModesPromptsChange={(modesPrompts) => {
-          save((snapshot) => ({ ...snapshot, modesPrompts }))
+        onModesPromptsChange={(update) => {
+          save((snapshot) => ({ ...snapshot, modesPrompts: update(snapshot.modesPrompts) }))
         }}
         onReset={() => {
           save(() => defaultSettingsSnapshot)

@@ -3,7 +3,7 @@ import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPromp
 
 interface SettingsPanelProps {
   readonly modesPrompts: ModesPromptsValue
-  readonly onModesPromptsChange: (value: ModesPromptsValue) => void
+  readonly onModesPromptsChange: (update: (value: ModesPromptsValue) => ModesPromptsValue) => void
   readonly onReset: () => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
 }

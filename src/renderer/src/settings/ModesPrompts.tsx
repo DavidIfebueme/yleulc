@@ -9,23 +9,25 @@ export interface ModesPromptsProviderOption {
 }
 
 interface ModesPromptsProps {
-  readonly onChange: (value: ModesPromptsValue) => void
+  readonly onChange: (update: (value: ModesPromptsValue) => ModesPromptsValue) => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
   readonly value: ModesPromptsValue
 }
 
 export function ModesPrompts(props: ModesPromptsProps) {
   const addPromptMode = (): void => {
-    let number = props.value.promptModes.length + 1
-    let id = `mode-${number}`
-    while (props.value.promptModes.some((mode) => mode.id === id)) {
-      number = number + 1
-      id = `mode-${number}`
-    }
-    props.onChange({
-      ...props.value,
-      activePromptModeId: id,
-      promptModes: [...props.value.promptModes, { id, label: "New mode", prompt: "" }]
+    props.onChange((value) => {
+      let number = value.promptModes.length + 1
+      let id = `mode-${number}`
+      while (value.promptModes.some((mode) => mode.id === id)) {
+        number = number + 1
+        id = `mode-${number}`
+      }
+      return {
+        ...value,
+        activePromptModeId: id,
+        promptModes: [...value.promptModes, { id, label: "New mode", prompt: "" }]
+      }
     })
   }
 
@@ -37,7 +39,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
           value={props.value.defaultProviderId}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
             const provider = props.providerOptions.find((option) => option.id === event.currentTarget.value)
-            props.onChange({ ...props.value, defaultProviderId: provider?.id ?? props.value.defaultProviderId })
+            props.onChange((value) => ({ ...value, defaultProviderId: provider?.id ?? value.defaultProviderId }))
           }}
           className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-white/90 outline-none"
         >
@@ -53,7 +55,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <input
           value={props.value.defaultModel}
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
-            props.onChange({ ...props.value, defaultModel: event.currentTarget.value })
+            props.onChange((value) => ({ ...value, defaultModel: event.currentTarget.value }))
           }}
           className="w-40 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 outline-none"
         />
@@ -63,7 +65,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <textarea
           value={props.value.systemPrompt}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-            props.onChange({ ...props.value, systemPrompt: event.currentTarget.value })
+            props.onChange((value) => ({ ...value, systemPrompt: event.currentTarget.value }))
           }}
           rows={3}
           className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 outline-none"
@@ -85,24 +87,24 @@ export function ModesPrompts(props: ModesPromptsProps) {
             <input
               value={mode.label}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                props.onChange({
-                  ...props.value,
-                  promptModes: props.value.promptModes.map((entry) =>
+                props.onChange((value) => ({
+                  ...value,
+                  promptModes: value.promptModes.map((entry) =>
                     entry.id === mode.id ? { ...entry, label: event.currentTarget.value } : entry
                   )
-                })
+                }))
               }}
               className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white/90 outline-none"
             />
             <textarea
               value={mode.prompt}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-                props.onChange({
-                  ...props.value,
-                  promptModes: props.value.promptModes.map((entry) =>
+                props.onChange((value) => ({
+                  ...value,
+                  promptModes: value.promptModes.map((entry) =>
                     entry.id === mode.id ? { ...entry, prompt: event.currentTarget.value } : entry
                   )
-                })
+                }))
               }}
               rows={2}
               className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white/90 outline-none"
@@ -111,14 +113,16 @@ export function ModesPrompts(props: ModesPromptsProps) {
               <button
                 type="button"
                 onClick={() => {
-                  const promptModes = props.value.promptModes.filter((entry) => entry.id !== mode.id)
-                  props.onChange({
-                    ...props.value,
-                    activePromptModeId:
-                      props.value.activePromptModeId === mode.id
-                        ? (promptModes[0]?.id ?? "")
-                        : props.value.activePromptModeId,
-                    promptModes
+                  props.onChange((value) => {
+                    const promptModes = value.promptModes.filter((entry) => entry.id !== mode.id)
+                    return {
+                      ...value,
+                      activePromptModeId:
+                        value.activePromptModeId === mode.id
+                          ? (promptModes[0]?.id ?? "")
+                          : value.activePromptModeId,
+                      promptModes
+                    }
                   })
                 }}
                 className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
