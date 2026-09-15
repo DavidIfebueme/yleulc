@@ -1,0 +1,24 @@
+appId: com.yleulc.app
+productName: yleulc
+artifactName: ${productName}-${version}-${arch}.${ext}
+asar: true
+directories:
+  output: dist
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: native/capture-rewriter
+    to: native/capture-rewriter
+    filter:
+      - capture_rewriter.so
+      - wrap-binary.sh
+linux:
+  target:
+    - deb
+    - AppImage
+  category: Utility
+  maintainer: yleulc contributors
+  description: Linux-first invisible AI meeting overlay
+deb:
+  packageCategory: utils
