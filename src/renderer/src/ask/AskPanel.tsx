@@ -29,6 +29,7 @@ import {
 } from "../capture/screenshotAttachments"
 import { isScreenshotBridgeAvailable, requestFullscreenCapture } from "../capture/ScreenshotGateway"
 import { ScreenshotTray } from "../capture/ScreenshotTray"
+import { ListenPanel } from "../listen/ListenPanel"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
@@ -196,88 +197,96 @@ export function AskPanel() {
       />
       <div className="mt-2 flex items-center justify-between">
         <AskModeSelect mode={mode} onModeChange={changeMode} />
-        <TranscriptToggle
-          open={transcriptOpen}
-          onToggle={() => {
-            setTranscriptOpen((value) => !value)
-          }}
-        />
+        {mode === "ask" ? (
+          <TranscriptToggle
+            open={transcriptOpen}
+            onToggle={() => {
+              setTranscriptOpen((value) => !value)
+            }}
+          />
+        ) : null}
       </div>
-      {transcriptOpen ? <TranscriptView segments={mockTranscriptSegments} /> : null}
-      <div className="mt-2 space-y-3">
-        {exchanges.map((exchange, index) => (
-          <div key={`${index}-${exchange.question}`} className="space-y-1.5">
-            <AskQuestionBubble question={exchange.question} />
-            <AskAnswerBullets bullets={exchange.bullets} />
+      {mode === "listen" ? (
+        <ListenPanel />
+      ) : (
+        <>
+          {transcriptOpen ? <TranscriptView segments={mockTranscriptSegments} /> : null}
+          <div className="mt-2 space-y-3">
+            {exchanges.map((exchange, index) => (
+              <div key={`${index}-${exchange.question}`} className="space-y-1.5">
+                <AskQuestionBubble question={exchange.question} />
+                <AskAnswerBullets bullets={exchange.bullets} />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {stream.question === "" ? null : (
-        <div className="mt-2 space-y-1.5">
-          <AskQuestionBubble question={stream.question} />
-          {stream.status === "streaming" && stream.answer.trim() === "" ? (
-            <p className="text-xs text-white/50">Streaming answer…</p>
-          ) : null}
-          {stream.answer.trim() === "" ? null : <AskAnswerBullets bullets={toAskBullets(stream.answer)} />}
-          {stream.status === "streaming" ? (
-            <button
-              type="button"
-              onClick={stream.stop}
-              className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
-            >
-              Stop
-            </button>
-          ) : null}
-          {stream.status === "error" ? (
-            <AskErrorCard message={stream.errorMessage} onRetry={stream.retry} />
-          ) : null}
-          {stream.status === "empty" ? (
-            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <p className="text-sm text-white/70">{emptyAskFallback}</p>
+          {stream.question === "" ? null : (
+            <div className="mt-2 space-y-1.5">
+              <AskQuestionBubble question={stream.question} />
+              {stream.status === "streaming" && stream.answer.trim() === "" ? (
+                <p className="text-xs text-white/50">Streaming answer…</p>
+              ) : null}
+              {stream.answer.trim() === "" ? null : <AskAnswerBullets bullets={toAskBullets(stream.answer)} />}
+              {stream.status === "streaming" ? (
+                <button
+                  type="button"
+                  onClick={stream.stop}
+                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                >
+                  Stop
+                </button>
+              ) : null}
+              {stream.status === "error" ? (
+                <AskErrorCard message={stream.errorMessage} onRetry={stream.retry} />
+              ) : null}
+              {stream.status === "empty" ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-sm text-white/70">{emptyAskFallback}</p>
+                  <button
+                    type="button"
+                    onClick={stream.retry}
+                    className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+              {stream.usage !== undefined ? (
+                <p className="text-[11px] text-white/40">
+                  {`${stream.usage.promptTokens} prompt · ${stream.usage.completionTokens} completion`}
+                </p>
+              ) : null}
+            </div>
+          )}
+          <div className="mt-2">
+            <AssistActions onTellMore={tellMore} onCopy={copyAnswer} copied={copied} />
+          </div>
+          <div className="mt-2">
+            <AssistQuickChips chips={assistQuickChips} onSelect={answerChip} />
+          </div>
+          <div className="mt-2">
+            <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
+            <div className="mt-1 flex items-center gap-2">
               <button
                 type="button"
-                onClick={stream.retry}
-                className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                onClick={captureScreen}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
               >
-                Retry
+                Capture screen
               </button>
+              {captureError === "" ? null : <p className="text-[11px] text-red-300/80">{captureError}</p>}
             </div>
-          ) : null}
-          {stream.usage !== undefined ? (
-            <p className="text-[11px] text-white/40">
-              {`${stream.usage.promptTokens} prompt · ${stream.usage.completionTokens} completion`}
-            </p>
-          ) : null}
-        </div>
+          </div>
+          <div className="mt-2">
+            <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
+          </div>
+          <div className="mt-2">
+            <AssistSubmitBar onAssist={submitDraft} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
+          </div>
+          <div className="mt-2">
+            <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />
+          </div>
+        </>
       )}
-      <div className="mt-2">
-        <AssistActions onTellMore={tellMore} onCopy={copyAnswer} copied={copied} />
-      </div>
-      <div className="mt-2">
-        <AssistQuickChips chips={assistQuickChips} onSelect={answerChip} />
-      </div>
-      <div className="mt-2">
-        <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
-        <div className="mt-1 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={captureScreen}
-            className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
-          >
-            Capture screen
-          </button>
-          {captureError === "" ? null : <p className="text-[11px] text-red-300/80">{captureError}</p>}
-        </div>
-      </div>
-      <div className="mt-2">
-        <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
-      </div>
-      <div className="mt-2">
-        <AssistSubmitBar onAssist={submitDraft} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
-      </div>
-      <div className="mt-2">
-        <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />
-      </div>
     </div>
   )
 }
