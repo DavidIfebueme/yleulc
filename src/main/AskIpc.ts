@@ -4,6 +4,7 @@ import {
   type AskEvent,
   type AskRequest
 } from "../shared/askIpc"
+import type { SettingsSnapshot } from "../shared/settingsIpc"
 import { AskServiceError, type AskServiceShape } from "./AskService"
 import type { ChatEvent } from "./providers/Provider"
 import type { ProviderError } from "./providers/Provider"
@@ -32,6 +33,20 @@ export function streamAskEvents(
 
 export function describeAskFailure(cause: ProviderError | AskServiceError): string {
   return cause.message
+}
+
+export function applySettingsToAskRequest(request: AskRequest, settings: SettingsSnapshot): AskRequest {
+  const mode = settings.modesPrompts.promptModes.find((entry) => entry.id === settings.modesPrompts.activePromptModeId)
+  const systemPrompt = [settings.modesPrompts.systemPrompt, mode?.prompt ?? "", request.systemPrompt ?? ""]
+    .map((prompt) => prompt.trim())
+    .filter((prompt) => prompt.length > 0)
+    .join("\n\n")
+  return {
+    ...request,
+    model: request.model ?? settings.modesPrompts.defaultModel,
+    providerId: request.providerId ?? settings.modesPrompts.defaultProviderId,
+    systemPrompt: systemPrompt === "" ? undefined : systemPrompt
+  }
 }
 
 export function runAskRequest(

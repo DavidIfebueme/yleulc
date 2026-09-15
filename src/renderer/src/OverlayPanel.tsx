@@ -14,6 +14,14 @@ export function OverlayPanel() {
     void window.yleulc.getSettings().then(setSettings, () => {})
   }, [])
 
+  const saveSettings = (snapshot: SettingsSnapshot): void => {
+    if (typeof window.yleulc === "undefined") {
+      setSettings(snapshot)
+      return
+    }
+    void window.yleulc.saveSettings(snapshot).then(setSettings, () => {})
+  }
+
   return (
     <div className="flex h-screen w-screen items-start justify-center bg-transparent p-4">
       <div className="space-y-2">
@@ -29,7 +37,7 @@ export function OverlayPanel() {
           </button>
         </div>
         {showSettings ? (
-          <SettingsDashboard settings={settings} onSettingsChange={setSettings} />
+          <SettingsDashboard settings={settings} onSettingsChange={saveSettings} />
         ) : (
           <AskPanel
             activePromptModeId={settings.modesPrompts.activePromptModeId}
@@ -39,10 +47,7 @@ export function OverlayPanel() {
                 ...settings,
                 modesPrompts: { ...settings.modesPrompts, activePromptModeId }
               }
-              setSettings(next)
-              if (typeof window.yleulc !== "undefined") {
-                void window.yleulc.saveSettings(next)
-              }
+              saveSettings(next)
             }}
           />
         )}

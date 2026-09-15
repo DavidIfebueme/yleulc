@@ -1,5 +1,6 @@
 import { Schema } from "effect"
 import { ScreenshotImageSchema } from "./screenshot"
+import { ProviderIdSchema, type ProviderId } from "./settingsIpc"
 
 export const askRequestChannel = "yleulc:ask-request"
 
@@ -13,13 +14,9 @@ export const defaultAskModel = "gpt-4o"
 
 export const emptyAskFallback = "No answer returned for this question."
 
-export const AskProviderIdSchema = Schema.Union([
-  Schema.Literal("custom"),
-  Schema.Literal("gemini"),
-  Schema.Literal("openai")
-])
+export const AskProviderIdSchema = ProviderIdSchema
 
-export type AskProviderId = typeof AskProviderIdSchema.Type
+export type AskProviderId = ProviderId
 
 export const AskTokenUsageSchema = Schema.Struct({
   completionTokens: Schema.Number,

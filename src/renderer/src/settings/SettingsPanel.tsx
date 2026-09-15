@@ -2,30 +2,18 @@ import type { KeybindAction, KeybindMap } from "../../../shared/keybinds"
 import { KeybindTable } from "./KeybindTable"
 import { ModesPrompts } from "./ModesPrompts"
 import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPrompts"
-import { ProviderKeysTable } from "./ProviderKeysTable"
-import type { ProviderKeyRow } from "./ProviderKeysTable"
 import { StealthToggles } from "./StealthToggles"
 import type { StealthToggleValue } from "./StealthToggles"
-import { TranscriptionEngineSelect } from "./TranscriptionEngineSelect"
-import type { TranscriptionEngineOption } from "./TranscriptionEngineSelect"
 
 interface SettingsPanelProps {
   readonly keybinds: KeybindMap
   readonly modesPrompts: ModesPromptsValue
   readonly onKeybindRebind: (action: KeybindAction, combo: string) => void
   readonly onModesPromptsChange: (value: ModesPromptsValue) => void
-  readonly onProviderRemove: (id: string) => void
-  readonly onProviderSave: (id: string, key: string) => void
-  readonly onProviderTest: (id: string) => void
   readonly onReset: () => void
   readonly onStealthChange: (value: StealthToggleValue) => void
-  readonly onTranscriptionEngineChange: (value: TranscriptionEngineOption) => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
-  readonly providerRows: ReadonlyArray<ProviderKeyRow>
   readonly stealth: StealthToggleValue
-  readonly testMessages: Record<string, string>
-  readonly testingIds: ReadonlyArray<string>
-  readonly transcriptionEngine: TranscriptionEngineOption
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
@@ -41,21 +29,6 @@ export function SettingsPanel(props: SettingsPanelProps) {
           Reset
         </button>
       </div>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Provider keys</h3>
-        <ProviderKeysTable
-          rows={props.providerRows}
-          onSave={props.onProviderSave}
-          onTest={props.onProviderTest}
-          onRemove={props.onProviderRemove}
-          testMessages={props.testMessages}
-          testingIds={props.testingIds}
-        />
-      </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Transcription</h3>
-        <TranscriptionEngineSelect value={props.transcriptionEngine} onChange={props.onTranscriptionEngineChange} />
-      </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Keybinds</h3>
         <KeybindTable keybinds={props.keybinds} onRebind={props.onKeybindRebind} />

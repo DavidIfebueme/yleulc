@@ -1,10 +1,15 @@
-import { ConfigProvider, Effect, Layer } from "effect"
+import { ConfigProvider, Deferred, Effect, Fiber, Layer, Ref } from "effect"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 import { defaultKeybinds, detectKeybindConflicts, isKeybindConflicted, rebindKeybind } from "../shared/keybinds"
-import { defaultSettingsSnapshot, makeFileSettingsStoreLayer, SettingsStore } from "./SettingsStore"
+import {
+  defaultSettingsSnapshot,
+  makeFileSettingsStoreLayer,
+  makeSettingsStoreTestLayer,
+  SettingsStore
+} from "./SettingsStore"
 
 describe("SettingsStore", () => {
   it("resolves defaults from the test layer", async () => {
@@ -149,5 +154,61 @@ describe("SettingsStore", () => {
     expect(restored).toEqual(saved)
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual(saved)
     await rm(directory, { force: true, recursive: true })
+  })
+  it("keeps the prior snapshot when a file write fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
+    const result = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          const error = yield* Effect.flip(
+            store.setSnapshot({ ...defaultSettingsSnapshot, modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "saved" } })
+          )
+          const snapshot = yield* store.getSnapshot()
+          return { error, snapshot }
+        }),
+        makeFileSettingsStoreLayer(directory, defaultSettingsSnapshot)
+      )
+    )
+    expect(result.error._tag).toBe("SettingsStoreError")
+    expect(result.error.kind).toBe("write")
+    expect(result.snapshot).toEqual(defaultSettingsSnapshot)
+    await rm(directory, { force: true, recursive: true })
+  })
+  it("serializes snapshot writes in submission order", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const writes = yield* Ref.make<ReadonlyArray<string>>([])
+        const calls = yield* Ref.make(0)
+        const first = { ...defaultSettingsSnapshot, modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "first" } }
+        const second = { ...defaultSettingsSnapshot, modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "second" } }
+        const layer = makeSettingsStoreTestLayer(defaultSettingsSnapshot, (snapshot) =>
+          Effect.gen(function* () {
+            const call = yield* Ref.updateAndGet(calls, (count) => count + 1)
+            if (call === 1) {
+              yield* Deferred.succeed(started, undefined)
+              yield* Deferred.await(release)
+            }
+            yield* Ref.update(writes, (saved) => [...saved, snapshot.modesPrompts.systemPrompt])
+          })
+        )
+        return yield* Effect.provide(
+          Effect.gen(function* () {
+            const store = yield* SettingsStore
+            const firstFiber = Effect.runFork(store.setSnapshot(first))
+            yield* Deferred.await(started)
+            const secondFiber = Effect.runFork(store.setSnapshot(second))
+            yield* Deferred.succeed(release, undefined)
+            yield* Fiber.join(firstFiber)
+            yield* Fiber.join(secondFiber)
+            return yield* Ref.get(writes)
+          }),
+          layer
+        )
+      })
+    )
+    expect(result).toEqual(["first", "second"])
   })
 })

@@ -1,5 +1,5 @@
 import { app } from "electron"
-import { Config, Context, Effect, Layer, Option, Ref, Schema } from "effect"
+import { Config, Context, Data, Effect, Layer, Option, Ref, Schema, Semaphore } from "effect"
 import { readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { defaultKeybinds } from "../shared/keybinds"
@@ -10,6 +10,7 @@ import {
   SettingsSnapshotSchema,
   TranscriptionEngineKindSchema,
   defaultSettingsSnapshot,
+  isValidSettingsSnapshot,
   type ModesPromptsSettings,
   type SettingsSnapshot,
   type StealthSettings,
@@ -18,6 +19,11 @@ import {
 
 export type { ModesPromptsSettings, SettingsSnapshot, StealthSettings, TranscriptionEngineKind }
 export { defaultSettingsSnapshot }
+
+export class SettingsStoreError extends Data.TaggedError("SettingsStoreError")<{
+  readonly message: string
+  readonly kind: "write"
+}> {}
 
 export const defaultStealthSettings: StealthSettings = {
   autoHideOnPortalScreencast: true,
@@ -34,21 +40,22 @@ export interface SettingsStoreShape {
   readonly getSnapshot: () => Effect.Effect<SettingsSnapshot, never>
   readonly getStealth: () => Effect.Effect<StealthSettings, never>
   readonly getTranscriptionEngine: () => Effect.Effect<TranscriptionEngineKind, never>
-  readonly reset: () => Effect.Effect<void, never>
-  readonly setSnapshot: (value: SettingsSnapshot) => Effect.Effect<void, never>
-  readonly setKeybind: (action: KeybindAction, combo: string) => Effect.Effect<void, never>
-  readonly setModesPrompts: (value: ModesPromptsSettings) => Effect.Effect<void, never>
-  readonly setStealth: (value: StealthSettings) => Effect.Effect<void, never>
-  readonly setTranscriptionEngine: (value: TranscriptionEngineKind) => Effect.Effect<void, never>
+  readonly reset: () => Effect.Effect<void, SettingsStoreError>
+  readonly setSnapshot: (value: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError>
+  readonly setKeybind: (action: KeybindAction, combo: string) => Effect.Effect<void, SettingsStoreError>
+  readonly setModesPrompts: (value: ModesPromptsSettings) => Effect.Effect<void, SettingsStoreError>
+  readonly setStealth: (value: StealthSettings) => Effect.Effect<void, SettingsStoreError>
+  readonly setTranscriptionEngine: (value: TranscriptionEngineKind) => Effect.Effect<void, SettingsStoreError>
 }
 
 function makeSettingsStore(
   initial: SettingsSnapshot,
   state: Ref.Ref<SettingsSnapshot>,
-  save: (snapshot: SettingsSnapshot) => Effect.Effect<void>
+  save: (snapshot: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError>,
+  writes: Semaphore.Semaphore
 ): SettingsStoreShape {
-  const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void> =>
-    Effect.andThen(Ref.set(state, snapshot), () => save(snapshot))
+  const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> =>
+    writes.withPermit(Effect.andThen(save(snapshot), () => Ref.set(state, snapshot)))
   return {
     getKeybinds: () => Effect.map(Ref.get(state), (snapshot) => snapshot.keybinds),
     getModesPrompts: () => Effect.map(Ref.get(state), (snapshot) => snapshot.modesPrompts),
@@ -77,7 +84,7 @@ function loadSettings(path: string, fallback: SettingsSnapshot): Effect.Effect<S
         return Effect.succeed(fallback)
       }
       const decoded = Schema.decodeUnknownResult(SettingsSnapshotSchema)(content.value)
-      return Effect.succeed(decoded._tag === "Success" ? decoded.success : fallback)
+      return Effect.succeed(decoded._tag === "Success" && isValidSettingsSnapshot(decoded.success) ? decoded.success : fallback)
     }
   )
 }
@@ -86,8 +93,13 @@ function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect
   return Effect.gen(function* () {
     const initial = yield* loadSettings(path, fallback)
     const state = yield* Ref.make(initial)
+    const writes = yield* Semaphore.make(1)
     return makeSettingsStore(initial, state, (snapshot) =>
-      Effect.orDie(Effect.tryPromise(() => writeFile(path, JSON.stringify(snapshot), "utf8")))
+      Effect.tryPromise({
+        try: () => writeFile(path, JSON.stringify(snapshot), "utf8"),
+        catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
+      }),
+      writes
     )
   })
 }
@@ -166,17 +178,22 @@ export class SettingsStore extends Context.Service<SettingsStore, SettingsStoreS
         transcriptionEngine: "local"
       }
       const state = yield* Ref.make(initial)
-      return makeSettingsStore(initial, state, () => Effect.void)
+      const writes = yield* Semaphore.make(1)
+      return makeSettingsStore(initial, state, () => Effect.void, writes)
     })
   )
 }
 
-export function makeSettingsStoreTestLayer(initial: SettingsSnapshot): Layer.Layer<SettingsStore> {
+export function makeSettingsStoreTestLayer(
+  initial: SettingsSnapshot,
+  save: (snapshot: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError> = () => Effect.void
+): Layer.Layer<SettingsStore> {
   return Layer.effect(
     SettingsStore,
     Effect.gen(function* () {
       const state = yield* Ref.make(initial)
-      return makeSettingsStore(initial, state, () => Effect.void)
+      const writes = yield* Semaphore.make(1)
+      return makeSettingsStore(initial, state, save, writes)
     })
   )
 }

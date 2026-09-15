@@ -46,4 +46,41 @@ describe("settings IPC", () => {
     expect(result.error.message).toBe("invalid settings snapshot")
     expect(result.read).toEqual(defaultSettingsSnapshot)
   })
+
+  it("rejects empty, duplicate, and inactive prompt mode lists", async () => {
+    const invalidSnapshots = [
+      {
+        ...defaultSettingsSnapshot,
+        modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, promptModes: [] }
+      },
+      {
+        ...defaultSettingsSnapshot,
+        modesPrompts: {
+          ...defaultSettingsSnapshot.modesPrompts,
+          promptModes: [
+            { id: "duplicate", label: "First", prompt: "" },
+            { id: "duplicate", label: "Second", prompt: "" }
+          ]
+        }
+      },
+      {
+        ...defaultSettingsSnapshot,
+        modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, activePromptModeId: "missing" }
+      }
+    ]
+    const errors = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* Effect.forEach(invalidSnapshots, (snapshot) => Effect.flip(saveSettings(snapshot, store)))
+        }),
+        makeSettingsStoreTestLayer(defaultSettingsSnapshot)
+      )
+    )
+    expect(errors.map((error) => error.message)).toEqual([
+      "invalid prompt modes",
+      "invalid prompt modes",
+      "invalid prompt modes"
+    ])
+  })
 })

@@ -18,7 +18,7 @@ import {
 import type { ScreenshotImage } from "../shared/screenshot"
 import { AppConfig } from "./AppConfig"
 import { AskService, type AskServiceError } from "./AskService"
-import { runAskRequest } from "./AskIpc"
+import { applySettingsToAskRequest, runAskRequest } from "./AskIpc"
 import { CaptureService } from "./CaptureService"
 import { getSettings, saveSettings } from "./SettingsIpc"
 import { SettingsStore } from "./SettingsStore"
@@ -64,7 +64,9 @@ const program = Effect.gen(function* () {
         Effect.sync(() => {
           sender.send(askEventChannel, askEvent)
         })
-      const task = runAskRequest(raw, askService, send).pipe(
+      const task = Effect.flatMap(settingsStore.getSnapshot(), (settings) =>
+        runAskRequest(applySettingsToAskRequest(decoded.success, settings), askService, send)
+      ).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             runningAsks.delete(requestId)

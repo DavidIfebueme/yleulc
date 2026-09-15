@@ -24,10 +24,6 @@ interface SettingsDashboardProps {
 export function SettingsDashboard(props: SettingsDashboardProps) {
   const save = (snapshot: SettingsSnapshot): void => {
     props.onSettingsChange(snapshot)
-    if (typeof window.yleulc === "undefined") {
-      return
-    }
-    void window.yleulc.saveSettings(snapshot).then(props.onSettingsChange, () => {})
   }
 
   return (
@@ -40,24 +36,14 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
       onModesPromptsChange={(modesPrompts) => {
         save({ ...props.settings, modesPrompts })
       }}
-      onProviderRemove={() => {}}
-      onProviderSave={() => {}}
-      onProviderTest={() => {}}
       onReset={() => {
         save(defaultSettingsSnapshot)
       }}
       onStealthChange={(stealth) => {
         save({ ...props.settings, stealth })
       }}
-      onTranscriptionEngineChange={(transcriptionEngine) => {
-        save({ ...props.settings, transcriptionEngine })
-      }}
       providerOptions={providerOptions}
-      providerRows={[]}
       stealth={props.settings.stealth}
-      testMessages={{}}
-      testingIds={[]}
-      transcriptionEngine={props.settings.transcriptionEngine}
     />
   )
 }

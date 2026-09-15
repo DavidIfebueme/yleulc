@@ -1,5 +1,4 @@
 import { Schema } from "effect"
-import { defaultAskModel } from "./askIpc"
 import { defaultKeybinds } from "./keybinds"
 
 export const settingsGetChannel = "yleulc:settings-get"
@@ -72,12 +71,30 @@ export const SettingsSnapshotSchema = Schema.Struct({
 
 export type SettingsSnapshot = typeof SettingsSnapshotSchema.Type
 
+export function hasValidPromptModes(settings: ModesPromptsSettings): boolean {
+  if (settings.promptModes.length === 0) {
+    return false
+  }
+  const ids = new Set<string>()
+  for (const mode of settings.promptModes) {
+    if (mode.id.trim().length === 0 || ids.has(mode.id)) {
+      return false
+    }
+    ids.add(mode.id)
+  }
+  return ids.has(settings.activePromptModeId)
+}
+
+export function isValidSettingsSnapshot(snapshot: SettingsSnapshot): boolean {
+  return hasValidPromptModes(snapshot.modesPrompts)
+}
+
 export const defaultSettingsSnapshot: SettingsSnapshot = {
   keybinds: { ...defaultKeybinds },
   modesPrompts: {
     activePromptModeId: "general",
     defaultMode: "ask",
-    defaultModel: defaultAskModel,
+    defaultModel: "gpt-4o",
     defaultProviderId: "openai",
     promptModes: [
       { id: "general", label: "General", prompt: "" },

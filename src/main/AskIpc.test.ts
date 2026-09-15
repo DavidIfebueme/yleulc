@@ -1,7 +1,8 @@
 import { Effect, Ref, Stream } from "effect"
 import { describe, expect, it } from "vitest"
 import { hasAskText, type AskEvent, type AskRequest } from "../shared/askIpc"
-import { runAskRequest, streamAskEvents, toAskEvent } from "./AskIpc"
+import { applySettingsToAskRequest, runAskRequest, streamAskEvents, toAskEvent } from "./AskIpc"
+import { defaultSettingsSnapshot } from "../shared/settingsIpc"
 import { makeAskService } from "./AskService"
 import { makeProviderRegistry } from "./providers/ProviderRegistry"
 import { ProviderError, type ChatEvent, type Provider } from "./providers/Provider"
@@ -62,6 +63,41 @@ describe("toAskEvent", () => {
       message: "boom",
       requestId: "ask-1"
     })
+  })
+})
+
+describe("applySettingsToAskRequest", () => {
+  it("uses the saved provider, model, system prompt, and active prompt mode", () => {
+    const settings = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        activePromptModeId: "interview",
+        defaultModel: "claude-sonnet-4-20250514",
+        defaultProviderId: "anthropic" as const,
+        promptModes: [
+          ...defaultSettingsSnapshot.modesPrompts.promptModes,
+          { id: "interview", label: "Interview", prompt: "Answer as a concise interview coach." }
+        ],
+        systemPrompt: "Use the user's experience and context."
+      }
+    }
+    const request = { question: askRequest.question, requestId: askRequest.requestId }
+    expect(applySettingsToAskRequest(request, settings)).toEqual({
+      ...request,
+      model: "claude-sonnet-4-20250514",
+      providerId: "anthropic",
+      systemPrompt: "Use the user's experience and context.\n\nAnswer as a concise interview coach."
+    })
+  })
+
+  it("keeps explicit request provider and model values", () => {
+    expect(
+      applySettingsToAskRequest(
+        { ...askRequest, model: "gpt-4.1", providerId: "openai", systemPrompt: "Use a short answer." },
+        defaultSettingsSnapshot
+      )
+    ).toMatchObject({ model: "gpt-4.1", providerId: "openai", systemPrompt: "Use a short answer." })
   })
 })
 
