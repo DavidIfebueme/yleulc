@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { quickActionIntents } from "../../../shared/askIntents"
+import type { KeybindMap } from "../../../shared/keybinds"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import { promptForSmartMode } from "../../../shared/askPrompts"
 import type { PromptMode } from "../../../shared/settingsIpc"
@@ -40,6 +41,7 @@ import { initialOverlayState } from "../../../shared/initialOverlayState"
 interface AskPanelProps {
   readonly activePromptModeId: string
   readonly initialMode: "ask" | "listen"
+  readonly keybinds: KeybindMap
   readonly onActivePromptModeChange: (modeId: string) => void
   readonly promptModes: ReadonlyArray<PromptMode>
   readonly settingsSaveError: string
@@ -59,12 +61,17 @@ export function AskPanel(props: AskPanelProps) {
   const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
   const [captureError, setCaptureError] = useState("")
   const [smartMode, setSmartMode] = useState(false)
+  const [activePromptModeId, setActivePromptModeId] = useState(props.activePromptModeId)
   const attachCounter = useRef(0)
   const stream = useAskStream()
 
   const askWithMode = (question: string, images = attachmentImages(attachments)): void => {
-    stream.ask(question, images, promptForSmartMode(smartMode))
+    stream.ask(question, images, promptForSmartMode(smartMode), activePromptModeId)
   }
+
+  useEffect(() => {
+    setActivePromptModeId(props.activePromptModeId)
+  }, [props.activePromptModeId])
 
   const getAnswerFromScreen = (): void => {
     if (!isScreenshotBridgeAvailable()) {
@@ -111,12 +118,18 @@ export function AskPanel(props: AskPanelProps) {
   }
 
   useEffect(() => {
-    return registerOverlayHotkeys({
+    return registerOverlayHotkeys(props.keybinds, {
       onToggleVisibility: () => {
         setHidden((value) => !value)
       },
       onSubmit: submitDraft,
-      onGetAnswer: getAnswerFromScreen
+      onGetAnswer: getAnswerFromScreen,
+      onToggleListen: () => {
+        setListening((value) => !value)
+      },
+      onToggleTranscript: () => {
+        setTranscriptOpen((value) => !value)
+      }
     })
   })
 
@@ -221,12 +234,15 @@ export function AskPanel(props: AskPanelProps) {
           setHidden(true)
         }}
       />
-      <div className="mt-2 flex items-center justify-between">
-        <CluelyPromptModeSelect
-          modeId={props.activePromptModeId}
-          modes={props.promptModes}
-          onModeChange={props.onActivePromptModeChange}
-        />
+        <div className="mt-2 flex items-center justify-between">
+          <CluelyPromptModeSelect
+            modeId={activePromptModeId}
+            modes={props.promptModes}
+            onModeChange={(modeId) => {
+              setActivePromptModeId(modeId)
+              props.onActivePromptModeChange(modeId)
+            }}
+          />
         {props.settingsSaveError === "" ? null : <p className="text-[11px] text-red-300/80">{props.settingsSaveError}</p>}
         <TranscriptToggle
           open={transcriptOpen}

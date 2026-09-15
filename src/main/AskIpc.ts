@@ -36,7 +36,8 @@ export function describeAskFailure(cause: ProviderError | AskServiceError): stri
 }
 
 export function applySettingsToAskRequest(request: AskRequest, settings: SettingsSnapshot): AskRequest {
-  const mode = settings.modesPrompts.promptModes.find((entry) => entry.id === settings.modesPrompts.activePromptModeId)
+  const activePromptModeId = request.activePromptModeId ?? settings.modesPrompts.activePromptModeId
+  const mode = settings.modesPrompts.promptModes.find((entry) => entry.id === activePromptModeId)
   const systemPrompt = [settings.modesPrompts.systemPrompt, mode?.prompt ?? "", request.systemPrompt ?? ""]
     .map((prompt) => prompt.trim())
     .filter((prompt) => prompt.length > 0)

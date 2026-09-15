@@ -76,6 +76,7 @@ export function OverlayPanel() {
             <AskPanel
               activePromptModeId={settings.modesPrompts.activePromptModeId}
               initialMode={settings.modesPrompts.defaultMode}
+              keybinds={settings.keybinds}
               settingsSaveError={settingsSaveError}
               promptModes={settings.modesPrompts.promptModes}
               onActivePromptModeChange={(activePromptModeId) => {

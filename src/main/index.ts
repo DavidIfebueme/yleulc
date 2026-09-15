@@ -17,7 +17,7 @@ import {
 } from "../shared/captureIpc"
 import type { ScreenshotImage } from "../shared/screenshot"
 import { AppConfig } from "./AppConfig"
-import { AskService, type AskServiceError } from "./AskService"
+import { AskService } from "./AskService"
 import { applySettingsToAskRequest, runAskRequest } from "./AskIpc"
 import { CaptureService } from "./CaptureService"
 import { getSettings, saveSettings } from "./SettingsIpc"
@@ -28,7 +28,7 @@ const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
 
 const decodeCaptureAreaResult = Schema.decodeUnknownResult(CaptureAreaRequestSchema)
 
-const runningAsks = new Map<string, Fiber.Fiber<void, AskServiceError>>()
+const runningAsks = new Map<string, Fiber.Fiber<void, unknown>>()
 
 const program = Effect.gen(function* () {
   yield* Effect.sync(() => {
@@ -64,9 +64,13 @@ const program = Effect.gen(function* () {
         Effect.sync(() => {
           sender.send(askEventChannel, askEvent)
         })
-      const task = Effect.flatMap(settingsStore.getSnapshot(), (settings) =>
-        runAskRequest(applySettingsToAskRequest(decoded.success, settings), askService, send)
-      ).pipe(
+      const task = Effect.gen(function* () {
+        if (decoded.success.activePromptModeId !== undefined) {
+          yield* settingsStore.setActivePromptMode(decoded.success.activePromptModeId)
+        }
+        const settings = yield* settingsStore.getSnapshot()
+        yield* runAskRequest(applySettingsToAskRequest(decoded.success, settings), askService, send)
+      }).pipe(
         Effect.ensuring(
           Effect.sync(() => {
             runningAsks.delete(requestId)

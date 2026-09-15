@@ -8,7 +8,12 @@ export type AskStreamStatus = "done" | "empty" | "error" | "idle" | "streaming"
 
 export interface UseAskStreamResult {
   readonly answer: string
-  readonly ask: (question: string, images?: ReadonlyArray<ScreenshotImage>, systemPrompt?: string) => void
+  readonly ask: (
+    question: string,
+    images?: ReadonlyArray<ScreenshotImage>,
+    systemPrompt?: string,
+    activePromptModeId?: string
+  ) => void
   readonly errorMessage: string
   readonly question: string
   readonly retry: () => void
@@ -28,6 +33,7 @@ export function useAskStream(): UseAskStreamResult {
   const requestCounter = useRef(0)
   const lastImages = useRef<ReadonlyArray<ScreenshotImage>>([])
   const lastSystemPrompt = useRef<string | undefined>(undefined)
+  const lastActivePromptModeId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     const handleEvent = (event: AskEvent): void => {
@@ -55,7 +61,12 @@ export function useAskStream(): UseAskStreamResult {
     return subscribeAskEvents(handleEvent)
   }, [])
 
-  const ask = (next: string, images?: ReadonlyArray<ScreenshotImage>, systemPrompt?: string): void => {
+  const ask = (
+    next: string,
+    images?: ReadonlyArray<ScreenshotImage>,
+    systemPrompt?: string,
+    activePromptModeId?: string
+  ): void => {
     const trimmed = next.trim()
     if (trimmed === "") {
       return
@@ -66,6 +77,7 @@ export function useAskStream(): UseAskStreamResult {
     answerRef.current = ""
     lastImages.current = images ?? []
     lastSystemPrompt.current = systemPrompt
+    lastActivePromptModeId.current = activePromptModeId
     setAnswer("")
     setErrorMessage("")
     setQuestion(trimmed)
@@ -79,7 +91,7 @@ export function useAskStream(): UseAskStreamResult {
       activeRequestId.current = undefined
       return
     }
-    void sendAskRequest({ images: [...lastImages.current], question: trimmed, requestId, systemPrompt }).then(
+    void sendAskRequest({ activePromptModeId, images: [...lastImages.current], question: trimmed, requestId, systemPrompt }).then(
       () => {},
       () => {
         if (activeRequestId.current !== requestId) {
@@ -110,7 +122,7 @@ export function useAskStream(): UseAskStreamResult {
     if (question.trim() === "") {
       return
     }
-    ask(question, lastImages.current, lastSystemPrompt.current)
+    ask(question, lastImages.current, lastSystemPrompt.current, lastActivePromptModeId.current)
   }
 
   return { answer, ask, errorMessage, question, retry, status, stop, usage }

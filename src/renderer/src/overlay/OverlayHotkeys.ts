@@ -1,29 +1,36 @@
-export const overlayToggleVisibilityKey = "ctrl+shift+space"
-export const overlaySubmitKey = "ctrl+enter"
-export const overlayGetAnswerKey = "ctrl+shift+enter"
+import { overlayHotkeyAction } from "../../../shared/overlayHotkeys"
+import type { KeybindMap } from "../../../shared/keybinds"
 
 export interface OverlayHotkeyHandlers {
-  readonly onToggleVisibility: () => void
-  readonly onSubmit: () => void
   readonly onGetAnswer: () => void
+  readonly onSubmit: () => void
+  readonly onToggleListen: () => void
+  readonly onToggleTranscript: () => void
+  readonly onToggleVisibility: () => void
 }
 
-export function registerOverlayHotkeys(handlers: OverlayHotkeyHandlers): () => void {
+export function registerOverlayHotkeys(keybinds: KeybindMap, handlers: OverlayHotkeyHandlers): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
-    const pressed = event.key.toLowerCase()
-    if (event.ctrlKey && event.shiftKey && pressed === " ") {
-      event.preventDefault()
-      handlers.onToggleVisibility()
+    const action = overlayHotkeyAction(keybinds, event)
+    if (action === undefined) {
       return
     }
-    if (event.ctrlKey && !event.shiftKey && pressed === "enter") {
-      event.preventDefault()
-      handlers.onSubmit()
-      return
-    }
-    if (event.ctrlKey && event.shiftKey && pressed === "enter") {
-      event.preventDefault()
-      handlers.onGetAnswer()
+    event.preventDefault()
+    switch (action) {
+      case "assist":
+        handlers.onGetAnswer()
+        return
+      case "submit":
+        handlers.onSubmit()
+        return
+      case "toggleListen":
+        handlers.onToggleListen()
+        return
+      case "toggleTranscript":
+        handlers.onToggleTranscript()
+        return
+      case "toggleVisibility":
+        handlers.onToggleVisibility()
     }
   }
   window.addEventListener("keydown", onKeyDown)

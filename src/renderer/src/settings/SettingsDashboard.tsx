@@ -42,15 +42,7 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
         onReset={() => {
           save(() => defaultSettingsSnapshot)
         }}
-        onStealthChange={(stealth) => {
-          save((snapshot) => ({ ...snapshot, stealth }))
-        }}
-        onTranscriptionEngineChange={(transcriptionEngine) => {
-          save((snapshot) => ({ ...snapshot, transcriptionEngine }))
-        }}
         providerOptions={providerOptions}
-        stealth={props.settings.stealth}
-        transcriptionEngine={props.settings.transcriptionEngine}
       />
       {props.errorMessage === "" ? null : <p className="mt-2 text-xs text-red-300/80">{props.errorMessage}</p>}
     </>

@@ -1,6 +1,6 @@
 import { Effect, Ref, Stream } from "effect"
 import { describe, expect, it } from "vitest"
-import { hasAskText, type AskEvent, type AskRequest } from "../shared/askIpc"
+import { decodeAskRequest, hasAskText, type AskEvent, type AskRequest } from "../shared/askIpc"
 import { applySettingsToAskRequest, runAskRequest, streamAskEvents, toAskEvent } from "./AskIpc"
 import { defaultSettingsSnapshot } from "../shared/settingsIpc"
 import { promptForSmartMode } from "../shared/askPrompts"
@@ -125,6 +125,19 @@ describe("applySettingsToAskRequest", () => {
     ).toBe(
       "Use concise language.\n\nCoach the user through this sales conversation. Give concise, practical next steps they can say aloud.\n\nPrioritize coding assistance."
     )
+  })
+
+  it("uses the mode attached to an immediate ask request", () => {
+    expect(
+      applySettingsToAskRequest(
+        { ...askRequest, activePromptModeId: "sales" } as AskRequest,
+        defaultSettingsSnapshot
+      ).systemPrompt
+    ).toBe("Coach the user through this sales conversation. Give concise, practical next steps they can say aloud.")
+  })
+
+  it("decodes an active mode attached to an ask request", () => {
+    expect(decodeAskRequest({ ...askRequest, activePromptModeId: "sales" }).activePromptModeId).toBe("sales")
   })
 })
 

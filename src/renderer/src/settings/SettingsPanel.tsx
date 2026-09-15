@@ -1,11 +1,7 @@
 import type { KeybindAction, KeybindMap } from "../../../shared/keybinds"
-import type { TranscriptionEngineKind } from "../../../shared/settingsIpc"
 import { KeybindTable } from "./KeybindTable"
 import { ModesPrompts } from "./ModesPrompts"
 import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPrompts"
-import { StealthToggles } from "./StealthToggles"
-import type { StealthToggleValue } from "./StealthToggles"
-import { TranscriptionEngineSelect } from "./TranscriptionEngineSelect"
 
 interface SettingsPanelProps {
   readonly keybinds: KeybindMap
@@ -13,11 +9,7 @@ interface SettingsPanelProps {
   readonly onKeybindRebind: (action: KeybindAction, combo: string) => void
   readonly onModesPromptsChange: (update: (value: ModesPromptsValue) => ModesPromptsValue) => void
   readonly onReset: () => void
-  readonly onStealthChange: (value: StealthToggleValue) => void
-  readonly onTranscriptionEngineChange: (value: TranscriptionEngineKind) => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
-  readonly stealth: StealthToggleValue
-  readonly transcriptionEngine: TranscriptionEngineKind
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
@@ -39,10 +31,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
       </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Transcription</h3>
-        <TranscriptionEngineSelect
-          value={props.transcriptionEngine}
-          onChange={props.onTranscriptionEngineChange}
-        />
+        <p className="text-xs text-white/60">The transcription engine is selected when the app starts.</p>
       </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Keybinds</h3>
@@ -50,7 +39,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
       </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Stealth</h3>
-        <StealthToggles value={props.stealth} onChange={props.onStealthChange} />
+        <p className="text-xs text-white/60">Portal screencast detection is not available yet.</p>
       </section>
       <section className="space-y-2">
         <h3 className="text-xs font-medium text-white/60">Modes and prompts</h3>

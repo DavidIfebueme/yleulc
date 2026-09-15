@@ -27,6 +27,7 @@ export const AskTokenUsageSchema = Schema.Struct({
 export type AskTokenUsage = typeof AskTokenUsageSchema.Type
 
 export const AskRequestSchema = Schema.Struct({
+  activePromptModeId: Schema.optional(Schema.String),
   images: Schema.optional(Schema.Array(ScreenshotImageSchema)),
   model: Schema.optional(Schema.String),
   providerId: Schema.optional(AskProviderIdSchema),
