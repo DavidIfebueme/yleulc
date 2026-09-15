@@ -212,4 +212,40 @@ describe("SettingsStore", () => {
     )
     expect(result).toEqual(["first", "second"])
   })
+  it("composes concurrent keybind and stealth updates", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>()
+        const release = yield* Deferred.make<void>()
+        const calls = yield* Ref.make(0)
+        const layer = makeSettingsStoreTestLayer(defaultSettingsSnapshot, () =>
+          Effect.gen(function* () {
+            const call = yield* Ref.updateAndGet(calls, (count) => count + 1)
+            if (call === 1) {
+              yield* Deferred.succeed(started, undefined)
+              yield* Deferred.await(release)
+            }
+          })
+        )
+        return yield* Effect.provide(
+          Effect.gen(function* () {
+            const store = yield* SettingsStore
+            const keybind = Effect.runFork(store.setKeybind("assist", "ctrl+shift+q"))
+            yield* Deferred.await(started)
+            const stealth = Effect.runFork(
+              store.setStealth({ autoHideOnPortalScreencast: false, showSingleWindowGuidance: false })
+            )
+            yield* Effect.yieldNow
+            yield* Deferred.succeed(release, undefined)
+            yield* Fiber.join(keybind)
+            yield* Fiber.join(stealth)
+            return yield* store.getSnapshot()
+          }),
+          layer
+        )
+      })
+    )
+    expect(result.keybinds.assist).toBe("ctrl+shift+q")
+    expect(result.stealth).toEqual({ autoHideOnPortalScreencast: false, showSingleWindowGuidance: false })
+  })
 })

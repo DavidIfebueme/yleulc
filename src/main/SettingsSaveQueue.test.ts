@@ -42,7 +42,7 @@ describe("SettingsSaveQueue", () => {
     ])
   })
 
-  it("keeps an in-flight save queue during hydration", async () => {
+  it("keeps a local save when hydration resolves after it", async () => {
     let releaseWrite: (() => void) | undefined
     const write = new Promise<void>((resolve) => {
       releaseWrite = resolve
@@ -55,12 +55,18 @@ describe("SettingsSaveQueue", () => {
       ...snapshot,
       modesPrompts: { ...snapshot.modesPrompts, activePromptModeId: "sales" }
     }))
-    queue.hydrate({
-      ...defaultSettingsSnapshot,
-      modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, activePromptModeId: "general", systemPrompt: "hydrated" }
-    })
     releaseWrite?.()
     await save
+    expect(
+      queue.hydrate({
+        ...defaultSettingsSnapshot,
+        modesPrompts: {
+          ...defaultSettingsSnapshot.modesPrompts,
+          activePromptModeId: "general",
+          systemPrompt: "hydrated"
+        }
+      })
+    ).toBe(false)
     expect(queue.current().modesPrompts).toMatchObject({ activePromptModeId: "sales", systemPrompt: "" })
   })
 

@@ -57,6 +57,15 @@ function makeSettingsStore(
 ): SettingsStoreShape {
   const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> =>
     writes.withPermit(Effect.andThen(save(snapshot), () => Ref.set(state, snapshot)))
+  const updateSnapshot = (
+    update: (snapshot: SettingsSnapshot) => SettingsSnapshot
+  ): Effect.Effect<void, SettingsStoreError> =>
+    writes.withPermit(
+      Effect.flatMap(Ref.get(state), (snapshot) => {
+        const next = update(snapshot)
+        return Effect.andThen(save(next), () => Ref.set(state, next))
+      })
+    )
   return {
     getKeybinds: () => Effect.map(Ref.get(state), (snapshot) => snapshot.keybinds),
     getModesPrompts: () => Effect.map(Ref.get(state), (snapshot) => snapshot.modesPrompts),
@@ -66,14 +75,10 @@ function makeSettingsStore(
     reset: () => setSnapshot(initial),
     setSnapshot,
     setKeybind: (action, combo) =>
-      Effect.flatMap(Ref.get(state), (snapshot) =>
-        setSnapshot({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })
-      ),
-    setModesPrompts: (value) =>
-      Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, modesPrompts: value })),
-    setStealth: (value) => Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, stealth: value })),
-    setTranscriptionEngine: (value) =>
-      Effect.flatMap(Ref.get(state), (snapshot) => setSnapshot({ ...snapshot, transcriptionEngine: value }))
+      updateSnapshot((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })),
+    setModesPrompts: (value) => updateSnapshot((snapshot) => ({ ...snapshot, modesPrompts: value })),
+    setStealth: (value) => updateSnapshot((snapshot) => ({ ...snapshot, stealth: value })),
+    setTranscriptionEngine: (value) => updateSnapshot((snapshot) => ({ ...snapshot, transcriptionEngine: value }))
   }
 }
 

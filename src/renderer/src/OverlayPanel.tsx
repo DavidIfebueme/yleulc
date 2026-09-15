@@ -20,9 +20,10 @@ export function OverlayPanel() {
     }
     void window.yleulc.getSettings().then(
       (snapshot) => {
-        setSettings(snapshot)
-        saveQueue.current.hydrate(snapshot)
-        setSettingsSaveError("")
+        if (saveQueue.current.hydrate(snapshot)) {
+          setSettings(snapshot)
+          setSettingsSaveError("")
+        }
       },
       () => {
         setSettingsSaveError("settings could not be loaded")

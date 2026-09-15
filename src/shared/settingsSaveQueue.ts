@@ -5,7 +5,7 @@ export type SettingsUpdate = (snapshot: SettingsSnapshot) => SettingsSnapshot
 export interface SettingsSaveQueue {
   readonly current: () => SettingsSnapshot
   readonly enqueue: (update: SettingsUpdate) => Promise<SettingsSnapshot>
-  readonly hydrate: (snapshot: SettingsSnapshot) => void
+  readonly hydrate: (snapshot: SettingsSnapshot) => boolean
 }
 
 export function makeSettingsSaveQueue(
@@ -14,29 +14,24 @@ export function makeSettingsSaveQueue(
 ): SettingsSaveQueue {
   let current = initial
   let writes = Promise.resolve()
-  let pending = 0
+  let localGeneration = 0
   const enqueue = (update: SettingsUpdate): Promise<SettingsSnapshot> => {
-    pending = pending + 1
+    localGeneration = localGeneration + 1
     const write = writes.then(() =>
       save(update(current)).then((saved) => {
         current = saved
         return saved
       })
     )
-    writes = write.then(
-      () => {
-        pending = pending - 1
-      },
-      () => {
-        pending = pending - 1
-      }
-    )
+    writes = write.then(() => undefined, () => undefined)
     return write
   }
-  const hydrate = (snapshot: SettingsSnapshot): void => {
-    if (pending === 0) {
+  const hydrate = (snapshot: SettingsSnapshot): boolean => {
+    if (localGeneration === 0) {
       current = snapshot
+      return true
     }
+    return false
   }
   return { current: () => current, enqueue, hydrate }
 }

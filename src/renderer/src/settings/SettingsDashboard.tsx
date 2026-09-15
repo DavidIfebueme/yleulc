@@ -31,14 +31,22 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
   return (
     <>
       <SettingsPanel
+        keybinds={props.settings.keybinds}
         modesPrompts={props.settings.modesPrompts}
+        onKeybindRebind={(action, combo) => {
+          save((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } }))
+        }}
         onModesPromptsChange={(update) => {
           save((snapshot) => ({ ...snapshot, modesPrompts: update(snapshot.modesPrompts) }))
         }}
         onReset={() => {
           save(() => defaultSettingsSnapshot)
         }}
+        onStealthChange={(stealth) => {
+          save((snapshot) => ({ ...snapshot, stealth }))
+        }}
         providerOptions={providerOptions}
+        stealth={props.settings.stealth}
       />
       {props.errorMessage === "" ? null : <p className="mt-2 text-xs text-red-300/80">{props.errorMessage}</p>}
     </>
