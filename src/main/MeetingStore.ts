@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto"
+import { join } from "node:path"
+import { app } from "electron"
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node"
 import { Config, Context, Data, Effect, Layer, Option, Schema } from "effect"
 import type { ConfigError } from "effect/Config"
@@ -246,10 +248,8 @@ const makeMeetingStore: Effect.Effect<MeetingStoreShape, never, SqlClient.SqlCli
 export class MeetingStore extends Context.Service<MeetingStore, MeetingStoreShape>()("MeetingStore") {
   static readonly Live: Layer.Layer<MeetingStore, MigrationError | SqlError | ConfigError> = Layer.unwrap(
     Effect.gen(function* () {
-      const filename = yield* Config.withDefault(
-        Config.String("YLEULC_MEETINGS_DB"),
-        defaultMeetingsDbFilename
-      )
+      const configured = yield* Config.option(Config.String("YLEULC_MEETINGS_DB"))
+      const filename = Option.getOrElse(configured, () => join(app.getPath("userData"), defaultMeetingsDbFilename))
       const sqlLive = MeetingMigratorLive.pipe(Layer.provideMerge(SqliteClient.layer({ filename })))
       return Layer.effect(MeetingStore, makeMeetingStore).pipe(Layer.provide(sqlLive))
     })
