@@ -234,15 +234,15 @@ export function AskPanel(props: AskPanelProps) {
           setHidden(true)
         }}
       />
-        <div className="mt-2 flex items-center justify-between">
-          <CluelyPromptModeSelect
-            modeId={activePromptModeId}
-            modes={props.promptModes}
-            onModeChange={(modeId) => {
-              setActivePromptModeId(modeId)
-              props.onActivePromptModeChange(modeId)
-            }}
-          />
+      <div className="mt-2 flex items-center justify-between">
+        <CluelyPromptModeSelect
+          modeId={activePromptModeId}
+          modes={props.promptModes}
+          onModeChange={(modeId) => {
+            setActivePromptModeId(modeId)
+            props.onActivePromptModeChange(modeId)
+          }}
+        />
         {props.settingsSaveError === "" ? null : <p className="text-[11px] text-red-300/80">{props.settingsSaveError}</p>}
         <TranscriptToggle
           open={transcriptOpen}
