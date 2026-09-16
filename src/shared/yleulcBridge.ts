@@ -1,5 +1,7 @@
 import type { AskEvent, AskRequest } from "./askIpc"
 import type { ListenEvent, ListenStartRequest } from "./listenIpc"
+import type { Meeting, MeetingSummary, SaveMeetingInput } from "./meeting"
+import type { MeetingIdRequest } from "./meetingIpc"
 import type { CropRect, ScreenshotImage } from "./screenshot"
 import type { SettingsSnapshot } from "./settingsIpc"
 
@@ -17,4 +19,9 @@ export interface YleulcBridge {
   readonly onListenEvent: (listener: (event: ListenEvent) => void) => () => void
   readonly getSettings: () => Promise<SettingsSnapshot>
   readonly saveSettings: (snapshot: SettingsSnapshot) => Promise<SettingsSnapshot>
+  readonly listMeetings: () => Promise<Array<MeetingSummary>>
+  readonly saveMeeting: (input: SaveMeetingInput) => Promise<Meeting>
+  readonly getMeeting: (request: MeetingIdRequest) => Promise<Meeting>
+  readonly exportMeetingMarkdown: (request: MeetingIdRequest) => Promise<string>
+  readonly deleteMeeting: (request: MeetingIdRequest) => Promise<void>
 }

@@ -10,6 +10,13 @@ import {
   type ListenStartRequest
 } from "../shared/listenIpc"
 import type { CropRect } from "../shared/screenshot"
+import {
+  meetingDeleteChannel,
+  meetingExportChannel,
+  meetingGetChannel,
+  meetingSaveChannel,
+  meetingsListChannel
+} from "../shared/meetingIpc"
 import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
 import { appVersionChannel, type YleulcBridge } from "../shared/yleulcBridge"
 
@@ -32,6 +39,11 @@ const yleulcBridge: YleulcBridge = {
     }
   },
   saveSettings: (snapshot) => ipcRenderer.invoke(settingsSaveChannel, snapshot),
+  listMeetings: () => ipcRenderer.invoke(meetingsListChannel),
+  saveMeeting: (input) => ipcRenderer.invoke(meetingSaveChannel, input),
+  getMeeting: (request) => ipcRenderer.invoke(meetingGetChannel, request),
+  exportMeetingMarkdown: (request) => ipcRenderer.invoke(meetingExportChannel, request),
+  deleteMeeting: (request) => ipcRenderer.invoke(meetingDeleteChannel, request),
   startListen: (request: ListenStartRequest) => ipcRenderer.invoke(listenStartChannel, request),
   stopListen: (request: ListenStartRequest) => {
     ipcRenderer.send(listenStopChannel, request)

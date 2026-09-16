@@ -18,6 +18,13 @@ import {
 } from "../shared/listenIpc"
 import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
 import {
+  meetingDeleteChannel,
+  meetingExportChannel,
+  meetingGetChannel,
+  meetingSaveChannel,
+  meetingsListChannel
+} from "../shared/meetingIpc"
+import {
   CaptureAreaRequestSchema,
   captureAreaChannel,
   captureFullscreenChannel
@@ -29,6 +36,8 @@ import { applySettingsToAskRequest, runAskRequest } from "./AskIpc"
 import { CaptureService } from "./CaptureService"
 import { runListenLive } from "./ListenRuntime"
 import { getSettings, saveSettings } from "./SettingsIpc"
+import { deleteMeeting, exportMeetingMarkdown, getMeeting, listMeetings, saveMeeting } from "./MeetingIpc"
+import { MeetingStore } from "./MeetingStore"
 import { SettingsStore } from "./SettingsStore"
 import { createOverlayWindow } from "./overlay"
 
@@ -53,6 +62,7 @@ const program = Effect.gen(function* () {
   const askService = yield* AskService
   const captureService = yield* CaptureService
   const settingsStore = yield* SettingsStore
+  const meetingStore = yield* MeetingStore
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
   })
@@ -62,6 +72,29 @@ const program = Effect.gen(function* () {
   yield* Effect.sync(() => {
     ipcMain.handle(settingsSaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
       Effect.runPromise(saveSettings(raw, settingsStore))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(meetingsListChannel, (): Promise<unknown> => Effect.runPromise(listMeetings(meetingStore)))
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(meetingSaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(saveMeeting(raw, meetingStore))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(meetingGetChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(getMeeting(raw, meetingStore))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(meetingExportChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(exportMeetingMarkdown(raw, meetingStore))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(meetingDeleteChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(deleteMeeting(raw, meetingStore))
     )
   })
   yield* Effect.sync(() => {
@@ -174,7 +207,10 @@ const program = Effect.gen(function* () {
 })
 
 const main = Effect.catch(
-  Effect.provide(program, Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live, SettingsStore.Live)),
+  Effect.provide(
+    program,
+    Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live, SettingsStore.Live, MeetingStore.Live)
+  ),
   (error) =>
     Effect.sync(() => {
       console.error(error)
