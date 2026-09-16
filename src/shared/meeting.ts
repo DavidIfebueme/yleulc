@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import type { ListenTranscriptEntry } from "./listenIpc"
 
 export const MeetingIdSchema = Schema.String.pipe(Schema.brand("MeetingId"))
 
@@ -104,6 +105,17 @@ export function toMeetingSummary(meeting: Meeting): MeetingSummary {
     startedAtMs: meeting.startedAtMs,
     title: meeting.title
   }
+}
+
+export function toMeetingTranscript(entries: ReadonlyArray<ListenTranscriptEntry>): MeetingTranscript {
+  return entries.map((entry) => ({
+    endMs: entry.endMs,
+    id: entry.id,
+    interim: entry.interim,
+    language: entry.language,
+    startMs: entry.startMs,
+    text: entry.text
+  }))
 }
 
 export function meetingDurationMs(span: MeetingSpan): number {
