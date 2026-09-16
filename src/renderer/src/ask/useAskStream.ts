@@ -1,13 +1,25 @@
 import { useEffect, useRef, useState } from "react"
 import type { AskEvent, AskTokenUsage } from "../../../shared/askIpc"
+import type { ListenTranscriptEntry } from "../../../shared/listenIpc"
 import type { ScreenshotImage } from "../../../shared/screenshot"
 import { answerAskQuestion } from "./AskMockGateway"
-import { cancelAskRequest, isAskBridgeAvailable, sendAskRequest, subscribeAskEvents } from "./AskIpcGateway"
+import {
+  cancelAskRequest,
+  isAskBridgeAvailable,
+  sendAskRequest,
+  sendAssistRequest,
+  subscribeAskEvents
+} from "./AskIpcGateway"
 
 export type AskStreamStatus = "done" | "empty" | "error" | "idle" | "streaming"
 
 export interface UseAskStreamResult {
   readonly answer: string
+  readonly assist: (
+    transcript: ReadonlyArray<ListenTranscriptEntry>,
+    systemPrompt?: string,
+    activePromptModeId?: string
+  ) => void
   readonly ask: (
     question: string,
     images?: ReadonlyArray<ScreenshotImage>,
@@ -32,6 +44,7 @@ export function useAskStream(): UseAskStreamResult {
   const answerRef = useRef("")
   const requestCounter = useRef(0)
   const lastImages = useRef<ReadonlyArray<ScreenshotImage>>([])
+  const lastAssistTranscript = useRef<ReadonlyArray<ListenTranscriptEntry> | undefined>(undefined)
   const lastSystemPrompt = useRef<string | undefined>(undefined)
   const lastActivePromptModeId = useRef<string | undefined>(undefined)
 
@@ -67,6 +80,9 @@ export function useAskStream(): UseAskStreamResult {
     systemPrompt?: string,
     activePromptModeId?: string
   ): void => {
+    if (activeRequestId.current !== undefined) {
+      return
+    }
     const trimmed = next.trim()
     if (trimmed === "") {
       return
@@ -76,6 +92,7 @@ export function useAskStream(): UseAskStreamResult {
     activeRequestId.current = requestId
     answerRef.current = ""
     lastImages.current = images ?? []
+    lastAssistTranscript.current = undefined
     lastSystemPrompt.current = systemPrompt
     lastActivePromptModeId.current = activePromptModeId
     setAnswer("")
@@ -104,6 +121,40 @@ export function useAskStream(): UseAskStreamResult {
     )
   }
 
+  const assist = (
+    transcript: ReadonlyArray<ListenTranscriptEntry>,
+    systemPrompt?: string,
+    activePromptModeId?: string
+  ): void => {
+    if (activeRequestId.current !== undefined) {
+      return
+    }
+    requestCounter.current = requestCounter.current + 1
+    const requestId = `assist-${Date.now()}-${requestCounter.current}`
+    activeRequestId.current = requestId
+    answerRef.current = ""
+    lastImages.current = []
+    lastAssistTranscript.current = transcript
+    lastSystemPrompt.current = systemPrompt
+    lastActivePromptModeId.current = activePromptModeId
+    setAnswer("")
+    setErrorMessage("")
+    setQuestion("Analyze the current screen and give the user the answer they need.")
+    setUsage(undefined)
+    setStatus("streaming")
+    void sendAssistRequest({ activePromptModeId, requestId, systemPrompt, transcript: [...transcript] }).then(
+      () => {},
+      () => {
+        if (activeRequestId.current !== requestId) {
+          return
+        }
+        activeRequestId.current = undefined
+        setErrorMessage("assist bridge unavailable")
+        setStatus("error")
+      }
+    )
+  }
+
   const stop = (): void => {
     const requestId = activeRequestId.current
     if (requestId === undefined) {
@@ -122,8 +173,12 @@ export function useAskStream(): UseAskStreamResult {
     if (question.trim() === "") {
       return
     }
+    if (lastAssistTranscript.current !== undefined) {
+      assist(lastAssistTranscript.current, lastSystemPrompt.current, lastActivePromptModeId.current)
+      return
+    }
     ask(question, lastImages.current, lastSystemPrompt.current, lastActivePromptModeId.current)
   }
 
-  return { answer, ask, errorMessage, question, retry, status, stop, usage }
+  return { answer, ask, assist, errorMessage, question, retry, status, stop, usage }
 }

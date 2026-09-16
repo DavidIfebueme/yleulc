@@ -15,13 +15,18 @@ export interface AskServiceShape {
 
 export function toChatRequest(request: AskRequest): ChatRequest {
   const systemPrompt = request.systemPrompt?.trim()
+  const transcriptContext = request.transcriptContext?.trim()
+  const text =
+    transcriptContext === undefined || transcriptContext === ""
+      ? request.question
+      : `${request.question}\n\nTranscript:\n${transcriptContext}`
   return {
     messages: [
       ...(systemPrompt === undefined || systemPrompt === "" ? [] : [{ images: [], role: "system" as const, text: systemPrompt }]),
       {
         images: (request.images ?? []).map((image) => ({ base64: image.base64, mimeType: image.mimeType })),
         role: "user",
-        text: request.question
+        text
       }
     ],
     model: request.model ?? defaultAskModel

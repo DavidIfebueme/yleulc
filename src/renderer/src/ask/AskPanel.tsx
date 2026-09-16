@@ -19,7 +19,7 @@ import {
 import { AskErrorCard } from "./AskErrorCard"
 import { AskHistoryChips } from "./AskHistoryChips"
 import { AskInput } from "./AskInput"
-import { isAskBridgeAvailable } from "./AskIpcGateway"
+import { isAskBridgeAvailable, subscribeAssistHotkey } from "./AskIpcGateway"
 import { AskQuestionBubble } from "./AskQuestionBubble"
 import { useAskStream } from "./useAskStream"
 import { AssistActions } from "../assist/AssistActions"
@@ -67,6 +67,7 @@ export function AskPanel(props: AskPanelProps) {
   const [areaSelecting, setAreaSelecting] = useState(false)
   const [smartMode, setSmartMode] = useState(false)
   const [activePromptModeId, setActivePromptModeId] = useState(props.activePromptModeId)
+  const [transcript, setTranscript] = useState<ReadonlyArray<ListenTranscriptEntry>>([])
   const attachCounter = useRef(0)
   const stream = useAskStream()
 
@@ -79,6 +80,10 @@ export function AskPanel(props: AskPanelProps) {
   }, [props.activePromptModeId])
 
   const getAnswerFromScreen = (): void => {
+    if (isAskBridgeAvailable()) {
+      stream.assist(transcript, promptForSmartMode(smartMode), activePromptModeId)
+      return
+    }
     if (!isScreenshotBridgeAvailable()) {
       setCaptureError("screen answers need the desktop app")
       return
@@ -93,6 +98,8 @@ export function AskPanel(props: AskPanelProps) {
       }
     )
   }
+
+  useEffect(() => subscribeAssistHotkey(getAnswerFromScreen), [activePromptModeId, smartMode, transcript])
 
   useEffect(() => {
     if (listening === false) {
@@ -128,7 +135,11 @@ export function AskPanel(props: AskPanelProps) {
         setHidden((value) => !value)
       },
       onSubmit: submitDraft,
-      onGetAnswer: getAnswerFromScreen,
+      onGetAnswer: () => {
+        if (!isAskBridgeAvailable()) {
+          getAnswerFromScreen()
+        }
+      },
       onToggleListen: () => {
         setListening((value) => !value)
       },
@@ -266,7 +277,12 @@ export function AskPanel(props: AskPanelProps) {
         />
       </div>
       {transcriptOpen ? (
-        <ListenPanel onTranscriptChange={props.onTranscriptChange} />
+        <ListenPanel
+          onTranscriptChange={(entries) => {
+            setTranscript(entries)
+            props.onTranscriptChange?.(entries)
+          }}
+        />
       ) : (
         <>
           <div className="mt-2 space-y-3">
@@ -374,7 +390,7 @@ export function AskPanel(props: AskPanelProps) {
             <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
           </div>
           <div className="mt-2">
-            <AssistSubmitBar onAssist={submitDraft} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
+            <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
           </div>
           <div className="mt-2">
             <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />

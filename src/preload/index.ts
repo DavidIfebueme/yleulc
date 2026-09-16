@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron"
 import type { IpcRendererEvent } from "electron"
 import { askCancelChannel, askEventChannel, askRequestChannel, type AskEvent } from "../shared/askIpc"
+import { assistHotkeyChannel, assistRequestChannel } from "../shared/assistIpc"
 import { captureAreaChannel, captureFullscreenChannel } from "../shared/captureIpc"
 import {
   listenEventChannel,
@@ -22,6 +23,7 @@ import { appVersionChannel, type YleulcBridge } from "../shared/yleulcBridge"
 
 const yleulcBridge: YleulcBridge = {
   appVersion: () => ipcRenderer.invoke(appVersionChannel),
+  askAssist: (request) => ipcRenderer.invoke(assistRequestChannel, request),
   askQuestion: (request) => ipcRenderer.invoke(askRequestChannel, request),
   cancelAsk: (requestId) => {
     ipcRenderer.send(askCancelChannel, requestId)
@@ -36,6 +38,15 @@ const yleulcBridge: YleulcBridge = {
     ipcRenderer.on(askEventChannel, subscription)
     return () => {
       ipcRenderer.removeListener(askEventChannel, subscription)
+    }
+  },
+  onAssistHotkey: (listener) => {
+    const subscription = (): void => {
+      listener()
+    }
+    ipcRenderer.on(assistHotkeyChannel, subscription)
+    return () => {
+      ipcRenderer.removeListener(assistHotkeyChannel, subscription)
     }
   },
   saveSettings: (snapshot) => ipcRenderer.invoke(settingsSaveChannel, snapshot),

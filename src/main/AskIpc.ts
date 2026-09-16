@@ -4,12 +4,17 @@ import {
   type AskEvent,
   type AskRequest
 } from "../shared/askIpc"
+import { AssistRequestSchema } from "../shared/assistIpc"
 import type { SettingsSnapshot } from "../shared/settingsIpc"
 import { AskServiceError, type AskServiceShape } from "./AskService"
+import { AssistServiceError, toAssistAskRequest, type AssistServiceShape } from "./AssistService"
+import type { CaptureServiceError } from "./CaptureService"
 import type { ChatEvent } from "./providers/Provider"
 import type { ProviderError } from "./providers/Provider"
 
 const decodeAskRequestEffect = Schema.decodeUnknownEffect(AskRequestSchema)
+
+const decodeAssistRequestEffect = Schema.decodeUnknownEffect(AssistRequestSchema)
 
 export function toAskEvent(requestId: string, event: ChatEvent): AskEvent {
   switch (event._tag) {
@@ -33,6 +38,10 @@ export function streamAskEvents(
 
 export function describeAskFailure(cause: ProviderError | AskServiceError): string {
   return cause.message
+}
+
+export function describeAssistFailure(cause: CaptureServiceError | ProviderError | AskServiceError | AssistServiceError): string {
+  return cause._tag === "CaptureServiceError" ? cause.reason : cause.message
 }
 
 export function applySettingsToAskRequest(request: AskRequest, settings: SettingsSnapshot): AskRequest {
@@ -62,6 +71,25 @@ export function runAskRequest(
     yield* Stream.runForEach(streamAskEvents(service, request), (event) => send(event)).pipe(
       Effect.catch((cause) =>
         send({ _tag: "error", message: describeAskFailure(cause), requestId: request.requestId })
+      )
+    )
+  })
+}
+
+export function runAssistRequest(
+  raw: unknown,
+  settings: SettingsSnapshot,
+  service: AssistServiceShape,
+  send: (event: AskEvent) => Effect.Effect<void>
+): Effect.Effect<void, AssistServiceError> {
+  return Effect.gen(function* () {
+    const request = yield* decodeAssistRequestEffect(raw).pipe(
+      Effect.mapError(() => new AssistServiceError({ message: "invalid assist request" }))
+    )
+    const askRequest = applySettingsToAskRequest(toAssistAskRequest(request), settings)
+    yield* Stream.runForEach(service.streamAssist(askRequest), (event) => send(toAskEvent(askRequest.requestId, event))).pipe(
+      Effect.catch((cause) =>
+        send({ _tag: "error", message: describeAssistFailure(cause), requestId: askRequest.requestId })
       )
     )
   })

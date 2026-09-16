@@ -1,4 +1,4 @@
-import { app, ipcMain } from "electron"
+import { app, globalShortcut, ipcMain } from "electron"
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
 import { Effect, Fiber, Layer, Schema } from "effect"
 import {
@@ -8,6 +8,7 @@ import {
   askRequestChannel,
   type AskEvent
 } from "../shared/askIpc"
+import { AssistRequestSchema, assistHotkeyChannel, assistRequestChannel } from "../shared/assistIpc"
 import { appVersionChannel } from "../shared/yleulcBridge"
 import {
   ListenStartRequestSchema,
@@ -16,7 +17,7 @@ import {
   listenStopChannel,
   type ListenEvent
 } from "../shared/listenIpc"
-import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
+import { settingsGetChannel, settingsSaveChannel, type SettingsSnapshot } from "../shared/settingsIpc"
 import {
   meetingDeleteChannel,
   meetingExportChannel,
@@ -32,7 +33,8 @@ import {
 import type { ScreenshotImage } from "../shared/screenshot"
 import { AppConfig } from "./AppConfig"
 import { AskService, type AskServiceError } from "./AskService"
-import { applySettingsToAskRequest, runAskRequest } from "./AskIpc"
+import { AssistService, type AssistServiceError } from "./AssistService"
+import { applySettingsToAskRequest, runAskRequest, runAssistRequest } from "./AskIpc"
 import { CaptureService } from "./CaptureService"
 import { runListenLive } from "./ListenRuntime"
 import { getSettings, saveSettings } from "./SettingsIpc"
@@ -40,14 +42,19 @@ import { deleteMeeting, exportMeetingMarkdown, getMeeting, listMeetings, saveMee
 import { MeetingStore } from "./MeetingStore"
 import { SettingsStore } from "./SettingsStore"
 import { createOverlayWindow } from "./overlay"
+import { makeGlobalAssistHotkey } from "./GlobalAssistHotkey"
 
 const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
+
+const decodeAssistRequestResult = Schema.decodeUnknownResult(AssistRequestSchema)
 
 const decodeCaptureAreaResult = Schema.decodeUnknownResult(CaptureAreaRequestSchema)
 
 const decodeListenStartResult = Schema.decodeUnknownResult(ListenStartRequestSchema)
 
 const runningAsks = new Map<string, Fiber.Fiber<void, AskServiceError>>()
+
+const runningAssists = new Map<string, Fiber.Fiber<void, AssistServiceError>>()
 
 const runningListens = new Map<string, Fiber.Fiber<void, never>>()
 
@@ -60,9 +67,11 @@ const program = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady())
   const config = yield* AppConfig
   const askService = yield* AskService
+  const assistService = yield* AssistService
   const captureService = yield* CaptureService
   const settingsStore = yield* SettingsStore
   const meetingStore = yield* MeetingStore
+  let registerAssistHotkey: (settings: SettingsSnapshot) => void = () => {}
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
   })
@@ -71,11 +80,42 @@ const program = Effect.gen(function* () {
   })
   yield* Effect.sync(() => {
     ipcMain.handle(settingsSaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
-      Effect.runPromise(saveSettings(raw, settingsStore))
+      Effect.runPromise(
+        Effect.map(saveSettings(raw, settingsStore), (settings) => {
+          registerAssistHotkey(settings)
+          return settings
+        })
+      )
     )
   })
   yield* Effect.sync(() => {
     ipcMain.handle(meetingsListChannel, (): Promise<unknown> => Effect.runPromise(listMeetings(meetingStore)))
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(assistRequestChannel, (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+      const decoded = decodeAssistRequestResult(raw)
+      if (decoded._tag === "Failure") {
+        return Promise.reject(new Error("invalid assist request"))
+      }
+      const requestId = decoded.success.requestId
+      const sender = event.sender
+      const send = (askEvent: AskEvent): Effect.Effect<void> =>
+        Effect.sync(() => {
+          sender.send(askEventChannel, askEvent)
+        })
+      const task = Effect.flatMap(settingsStore.getSnapshot(), (settings) =>
+        runAssistRequest(decoded.success, settings, assistService, send)
+      ).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            runningAssists.delete(requestId)
+          })
+        )
+      )
+      const fiber = Effect.runFork(task)
+      runningAssists.set(requestId, fiber)
+      return Promise.resolve()
+    })
   })
   yield* Effect.sync(() => {
     ipcMain.handle(meetingSaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
@@ -128,12 +168,20 @@ const program = Effect.gen(function* () {
       if (typeof requestId !== "string") {
         return
       }
-      const fiber = runningAsks.get(requestId)
-      if (fiber === undefined) {
+      const askFiber = runningAsks.get(requestId)
+      const assistFiber = runningAssists.get(requestId)
+      if (askFiber === undefined && assistFiber === undefined) {
         return
       }
       runningAsks.delete(requestId)
-      Effect.runFork(Fiber.interrupt(fiber))
+      runningAssists.delete(requestId)
+      if (askFiber !== undefined) {
+        Effect.runFork(Fiber.interrupt(askFiber))
+        return
+      }
+      if (assistFiber !== undefined) {
+        Effect.runFork(Fiber.interrupt(assistFiber))
+      }
     })
   })
   yield* Effect.sync(() => {
@@ -202,14 +250,35 @@ const program = Effect.gen(function* () {
     })
   })
   yield* Effect.sync(() => {
-    createOverlayWindow(config)
+    const overlay = createOverlayWindow(config)
+    const hotkey = makeGlobalAssistHotkey(globalShortcut, () => {
+      overlay.webContents.send(assistHotkeyChannel)
+    })
+    registerAssistHotkey = (settings) => {
+      hotkey.register(settings.keybinds.assist)
+    }
+    Effect.runFork(
+      Effect.map(settingsStore.getKeybinds(), (keybinds) => {
+        hotkey.register(keybinds.assist)
+      })
+    )
+    app.on("will-quit", () => {
+      hotkey.unregister()
+    })
   })
 })
 
 const main = Effect.catch(
   Effect.provide(
     program,
-    Layer.mergeAll(AppConfig.Live, AskService.Test, CaptureService.Live, SettingsStore.Live, MeetingStore.Live)
+    Layer.mergeAll(
+      AppConfig.Live,
+      AskService.Test,
+      CaptureService.Live,
+      AssistService.Live.pipe(Layer.provide(Layer.merge(AskService.Test, CaptureService.Live))),
+      SettingsStore.Live,
+      MeetingStore.Live
+    )
   ),
   (error) =>
     Effect.sync(() => {
