@@ -32,6 +32,20 @@ jobs:
         run: make -C native/capture-rewriter && test -f native/capture-rewriter/capture_rewriter.so
       - name: package linux artifacts
         run: npm run dist
+      - name: verify installer icons
+        run: |
+          set -euo pipefail
+          app_image="$(realpath dist/*.AppImage)"
+          "$app_image" --appimage-extract
+          for icon in build/icons/*.png; do
+            size="${icon##*/}"
+            size="${size%x*}"
+            icon_path="usr/share/icons/hicolor/${size}x${size}/apps/yleulc.png"
+            expected="$(sha256sum "$icon" | cut -d ' ' -f 1)"
+            test "$expected" = "$(dpkg-deb --fsys-tarfile dist/*.deb | tar -xOf - "./$icon_path" | sha256sum | cut -d ' ' -f 1)"
+            test "$expected" = "$(sha256sum "squashfs-root/$icon_path" | cut -d ' ' -f 1)"
+          done
+          test "$(readlink squashfs-root/yleulc.png)" = "usr/share/icons/hicolor/512x512/apps/yleulc.png"
       - name: write checksums
         run: sha256sum dist/*.deb dist/*.AppImage > dist/SHASUMS256.txt && sha256sum -c dist/SHASUMS256.txt && ls -la dist
       - name: attach artifacts to release
