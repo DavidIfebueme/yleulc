@@ -47,6 +47,10 @@ export interface UseListenSessionResult {
   readonly systemAudio: SystemAudioSupport
 }
 
+export interface UseListenSessionOptions {
+  readonly onEntriesChange?: (entries: ReadonlyArray<ListenTranscriptEntry>) => void
+}
+
 type SetListenAnswers = Dispatch<SetStateAction<ReadonlyArray<ListenAutoAnswer>>>
 
 function applyAskEvent(
@@ -116,7 +120,7 @@ function startAnswer(entry: ListenTranscriptEntry, setAnswers: SetListenAnswers)
   )
 }
 
-export function useListenSession(): UseListenSessionResult {
+export function useListenSession(options?: UseListenSessionOptions): UseListenSessionResult {
   const [entries, setEntries] = useState<ReadonlyArray<ListenTranscriptEntry>>([])
   const [answers, setAnswers] = useState<ReadonlyArray<ListenAutoAnswer>>([])
   const [engineError, setEngineError] = useState<string | undefined>(undefined)
@@ -173,6 +177,13 @@ export function useListenSession(): UseListenSessionResult {
       }
     })
   }, [])
+
+  useEffect(() => {
+    const notify = options?.onEntriesChange
+    if (notify !== undefined) {
+      notify(entries)
+    }
+  }, [entries])
 
   const retryAnswer = (requestId: string): void => {
     const target = answers.find((answer) => answer.requestId === requestId)

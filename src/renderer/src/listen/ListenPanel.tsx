@@ -1,11 +1,16 @@
+import type { ListenTranscriptEntry } from "../../../shared/listenIpc"
 import { ListenAutoAnswerCard } from "./ListenAutoAnswerCard"
 import { ListenErrorBanner } from "./ListenErrorBanner"
 import { ListenTranscriptBar } from "./ListenTranscriptBar"
 import { ListenWaveMark } from "./ListenWaveMark"
 import { useListenSession } from "./useListenSession"
 
-export function ListenPanel() {
-  const session = useListenSession()
+interface ListenPanelProps {
+  readonly onTranscriptChange?: (entries: ReadonlyArray<ListenTranscriptEntry>) => void
+}
+
+export function ListenPanel(props: ListenPanelProps) {
+  const session = useListenSession({ onEntriesChange: props.onTranscriptChange })
   return (
     <div>
       <div className="mt-2 flex items-center gap-1.5">

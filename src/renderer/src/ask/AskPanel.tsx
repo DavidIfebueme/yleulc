@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { quickActionIntents } from "../../../shared/askIntents"
 import type { KeybindMap } from "../../../shared/keybinds"
+import type { ListenTranscriptEntry } from "../../../shared/listenIpc"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import { promptForSmartMode } from "../../../shared/askPrompts"
 import type { PromptMode } from "../../../shared/settingsIpc"
@@ -45,6 +46,7 @@ interface AskPanelProps {
   readonly initialMode: "ask" | "listen"
   readonly keybinds: KeybindMap
   readonly onActivePromptModeChange: (modeId: string) => void
+  readonly onTranscriptChange?: (entries: ReadonlyArray<ListenTranscriptEntry>) => void
   readonly promptModes: ReadonlyArray<PromptMode>
   readonly settingsSaveError: string
 }
@@ -264,7 +266,7 @@ export function AskPanel(props: AskPanelProps) {
         />
       </div>
       {transcriptOpen ? (
-        <ListenPanel />
+        <ListenPanel onTranscriptChange={props.onTranscriptChange} />
       ) : (
         <>
           <div className="mt-2 space-y-3">
