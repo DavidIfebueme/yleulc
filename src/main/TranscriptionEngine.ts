@@ -20,6 +20,12 @@ export interface VadScorerShape {
 }
 
 export class VadScorer extends Context.Service<VadScorer, VadScorerShape>()("VadScorer") {
+  static readonly Live = Layer.succeed(
+    VadScorer,
+    VadScorer.of({
+      scoreFrame: (pcm) => Effect.succeed(scoreVadRms(pcm))
+    })
+  )
   static readonly Test = Layer.succeed(
     VadScorer,
     VadScorer.of({
@@ -32,6 +38,25 @@ export function makeVadScorerTestLayer(
   scoreFrame: (pcm: Uint8Array) => Effect.Effect<number, TranscriptionError>
 ): Layer.Layer<VadScorer> {
   return Layer.succeed(VadScorer, VadScorer.of({ scoreFrame }))
+}
+
+export function scoreVadRms(pcm: Uint8Array): number {
+  const samples = Math.floor(pcm.length / 2)
+  if (samples === 0) {
+    return 0
+  }
+  let energy = 0
+  for (let index = 0; index + 1 < pcm.length; index = index + 2) {
+    const low = pcm[index] ?? 0
+    const high = pcm[index + 1] ?? 0
+    let sample = ((high << 8) | low) & 0xffff
+    if (sample >= 32768) {
+      sample = sample - 65536
+    }
+    const normalized = sample / 32768
+    energy = energy + normalized * normalized
+  }
+  return Math.min(1, Math.sqrt(energy / samples) * 4)
 }
 
 const pcmBytesPerSecond = captureSampleRateHz * captureChannels * captureSampleBytes

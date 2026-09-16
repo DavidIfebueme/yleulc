@@ -137,6 +137,42 @@ describe("VadScorer", () => {
     )
     expect(score).toBe(0.12)
   })
+  it("scores silence near zero with the live energy scorer", async () => {
+    const score = await Effect.runPromise(
+      Effect.provide(
+        Effect.flatMap(VadScorer, (scorer) => scorer.scoreFrame(new Uint8Array(640))),
+        VadScorer.Live
+      )
+    )
+    expect(score).toBe(0)
+  })
+  it("scores loud frames above silence with the live energy scorer", async () => {
+    const loud = new Uint8Array(640)
+    for (let index = 0; index < loud.length; index = index + 2) {
+      loud[index] = 255
+      loud[index + 1] = 127
+    }
+    const program = Effect.flatMap(VadScorer, (scorer) =>
+      Effect.gen(function* () {
+        const silence = yield* scorer.scoreFrame(new Uint8Array(640))
+        const speech = yield* scorer.scoreFrame(loud)
+        return { silence, speech }
+      })
+    )
+    const outcome = await Effect.runPromise(Effect.provide(program, VadScorer.Live))
+    expect(outcome.silence).toBe(0)
+    expect(outcome.speech).toBeGreaterThan(0.5)
+    expect(outcome.speech).toBeLessThanOrEqual(1)
+  })
+  it("scores empty frames as zero with the live energy scorer", async () => {
+    const score = await Effect.runPromise(
+      Effect.provide(
+        Effect.flatMap(VadScorer, (scorer) => scorer.scoreFrame(new Uint8Array(0))),
+        VadScorer.Live
+      )
+    )
+    expect(score).toBe(0)
+  })
 })
 
 describe("TranscriptionEngine", () => {
