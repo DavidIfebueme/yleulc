@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer } from "electron"
 import type { IpcRendererEvent } from "electron"
 import { askCancelChannel, askEventChannel, askRequestChannel, type AskEvent } from "../shared/askIpc"
 import { captureAreaChannel, captureFullscreenChannel } from "../shared/captureIpc"
+import {
+  listenEventChannel,
+  listenStartChannel,
+  listenStopChannel,
+  type ListenEvent,
+  type ListenStartRequest
+} from "../shared/listenIpc"
 import type { CropRect } from "../shared/screenshot"
 import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
 import { appVersionChannel, type YleulcBridge } from "../shared/yleulcBridge"
@@ -24,7 +31,20 @@ const yleulcBridge: YleulcBridge = {
       ipcRenderer.removeListener(askEventChannel, subscription)
     }
   },
-  saveSettings: (snapshot) => ipcRenderer.invoke(settingsSaveChannel, snapshot)
+  saveSettings: (snapshot) => ipcRenderer.invoke(settingsSaveChannel, snapshot),
+  startListen: (request: ListenStartRequest) => ipcRenderer.invoke(listenStartChannel, request),
+  stopListen: (request: ListenStartRequest) => {
+    ipcRenderer.send(listenStopChannel, request)
+  },
+  onListenEvent: (listener) => {
+    const subscription = (_event: IpcRendererEvent, value: ListenEvent): void => {
+      listener(value)
+    }
+    ipcRenderer.on(listenEventChannel, subscription)
+    return () => {
+      ipcRenderer.removeListener(listenEventChannel, subscription)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld("yleulc", yleulcBridge)

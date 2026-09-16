@@ -20,6 +20,11 @@ export function ListenPanel() {
       {session.engineError === undefined ? null : (
         <ListenErrorBanner message={session.engineError} onDismiss={session.dismissEngineError} />
       )}
+      {session.running && session.systemAudio === "unsupported" ? (
+        <p className="mt-1 text-[11px] text-white/50">
+          System audio capture is not available on this machine. Mic transcript continues.
+        </p>
+      ) : null}
       <ListenTranscriptBar entries={session.entries} />
       {session.answers.length === 0 ? null : (
         <div className="mt-2 space-y-2">
