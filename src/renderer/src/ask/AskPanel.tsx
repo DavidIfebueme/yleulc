@@ -4,6 +4,7 @@ import type { KeybindMap } from "../../../shared/keybinds"
 import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import { promptForSmartMode } from "../../../shared/askPrompts"
 import type { PromptMode } from "../../../shared/settingsIpc"
+import type { ScreenshotImage } from "../../../shared/screenshot"
 import type { AskAnswer } from "./AskMockGateway"
 import {
   answerAskQuestion,
@@ -23,6 +24,7 @@ import { useAskStream } from "./useAskStream"
 import { AssistActions } from "../assist/AssistActions"
 import { AssistQuickChips } from "../assist/AssistQuickChips"
 import { AssistSubmitBar } from "../assist/AssistSubmitBar"
+import { AreaSelect } from "../capture/AreaSelect"
 import {
   appendScreenshotAttachments,
   attachmentImages,
@@ -60,6 +62,7 @@ export function AskPanel(props: AskPanelProps) {
   const [hidden, setHidden] = useState(false)
   const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
   const [captureError, setCaptureError] = useState("")
+  const [areaSelecting, setAreaSelecting] = useState(false)
   const [smartMode, setSmartMode] = useState(false)
   const [activePromptModeId, setActivePromptModeId] = useState(props.activePromptModeId)
   const attachCounter = useRef(0)
@@ -167,6 +170,14 @@ export function AskPanel(props: AskPanelProps) {
     )
   }
 
+  const captureAreaAttachment = (image: ScreenshotImage): void => {
+    attachCounter.current = attachCounter.current + 1
+    const created = createScreenshotAttachment(`area-${Date.now()}-${attachCounter.current}`, image)
+    setAttachments((previous) => appendScreenshotAttachments(previous, [created]))
+    setAreaSelecting(false)
+    setCaptureError("")
+  }
+
   const tellMore = (): void => {
     setExchanges((previous) => {
       const last = previous[previous.length - 1]
@@ -219,6 +230,7 @@ export function AskPanel(props: AskPanelProps) {
   }
 
   return (
+    <>
     <div className="w-[400px] rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-white shadow-2xl backdrop-blur-xl">
       <ListenStatusPill
         listening={listening}
@@ -325,6 +337,20 @@ export function AskPanel(props: AskPanelProps) {
               >
                 Capture screen
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isScreenshotBridgeAvailable()) {
+                    setCaptureError("screenshots need the desktop app")
+                    return
+                  }
+                  setCaptureError("")
+                  setAreaSelecting(true)
+                }}
+                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+              >
+                Capture area
+              </button>
               {captureError === "" ? null : <p className="text-[11px] text-red-300/80">{captureError}</p>}
             </div>
           </div>
@@ -354,5 +380,14 @@ export function AskPanel(props: AskPanelProps) {
         </>
       )}
     </div>
+    {areaSelecting ? (
+      <AreaSelect
+        onCancel={() => {
+          setAreaSelecting(false)
+        }}
+        onCaptured={captureAreaAttachment}
+      />
+    ) : null}
+    </>
   )
 }
