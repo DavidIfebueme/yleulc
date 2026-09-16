@@ -23,7 +23,7 @@ export { defaultSettingsSnapshot }
 
 export class SettingsStoreError extends Data.TaggedError("SettingsStoreError")<{
   readonly message: string
-  readonly kind: "write"
+  readonly kind: "durability" | "write"
 }> {}
 
 export const defaultStealthSettings: StealthSettings = {
@@ -55,15 +55,18 @@ function makeSettingsStore(
   save: (snapshot: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError>,
   writes: Semaphore.Semaphore
 ): SettingsStoreShape {
-  const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> =>
-    writes.withPermit(Effect.andThen(save(snapshot), () => Ref.set(state, snapshot)))
+  const saveSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> =>
+    Effect.catch(save(snapshot), (error) =>
+      error.kind === "durability" ? Effect.andThen(Ref.set(state, snapshot), () => Effect.fail(error)) : Effect.fail(error)
+    ).pipe(Effect.andThen(() => Ref.set(state, snapshot)))
+  const setSnapshot = (snapshot: SettingsSnapshot): Effect.Effect<void, SettingsStoreError> => writes.withPermit(saveSnapshot(snapshot))
   const updateSnapshot = (
     update: (snapshot: SettingsSnapshot) => SettingsSnapshot
   ): Effect.Effect<void, SettingsStoreError> =>
     writes.withPermit(
       Effect.flatMap(Ref.get(state), (snapshot) => {
         const next = update(snapshot)
-        return Effect.andThen(save(next), () => Ref.set(state, next))
+        return saveSnapshot(next)
       })
     )
   return {
@@ -138,7 +141,7 @@ function makeFileSettingsStore(path: string, fallback: SettingsSnapshot): Effect
         Effect.andThen(() =>
           Effect.tryPromise({
             try: () => syncParentDirectory(path),
-            catch: (cause) => new SettingsStoreError({ kind: "write", message: String(cause) })
+            catch: (cause) => new SettingsStoreError({ kind: "durability", message: String(cause) })
           })
         ),
         Effect.ensuring(Effect.ignore(Effect.tryPromise(() => unlink(temporaryPath))))

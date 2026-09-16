@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
-import { defaultSettingsSnapshot, makeSettingsStoreTestLayer, SettingsStore } from "./SettingsStore"
+import { defaultSettingsSnapshot, makeSettingsStoreTestLayer, SettingsStore, SettingsStoreError } from "./SettingsStore"
 import { getSettings, saveSettings } from "./SettingsIpc"
 
 describe("settings IPC", () => {
@@ -82,5 +82,24 @@ describe("settings IPC", () => {
       "invalid prompt modes",
       "invalid prompt modes"
     ])
+  })
+
+  it("acknowledges the renamed snapshot after a durability warning", async () => {
+    const snapshot = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: { ...defaultSettingsSnapshot.modesPrompts, systemPrompt: "saved after rename" }
+    }
+    const saved = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* saveSettings(snapshot, store)
+        }),
+        makeSettingsStoreTestLayer(defaultSettingsSnapshot, () =>
+          Effect.fail(new SettingsStoreError({ kind: "durability", message: "directory sync failed" }))
+        )
+      )
+    )
+    expect(saved).toEqual(snapshot)
   })
 })

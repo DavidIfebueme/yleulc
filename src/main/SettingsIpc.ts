@@ -19,7 +19,9 @@ export function saveSettings(
     if (!isValidSettingsSnapshot(snapshot)) {
       return yield* Effect.fail(new Error("invalid prompt modes"))
     }
-    yield* store.setSnapshot(snapshot)
+    yield* Effect.catch(store.setSnapshot(snapshot), (error) =>
+      error.kind === "durability" ? Effect.void : Effect.fail(error)
+    )
     return yield* store.getSnapshot()
   })
 }

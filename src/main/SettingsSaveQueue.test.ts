@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { defaultSettingsSnapshot } from "../shared/settingsIpc"
-import { makeSettingsSaveQueue } from "../shared/settingsSaveQueue"
+import { makeSettingsDraft, makeSettingsSaveQueue } from "../shared/settingsSaveQueue"
+import { canRebindKeybind } from "../shared/keybinds"
 
 describe("SettingsSaveQueue", () => {
   it("composes rapid model then system prompt edits from the preceding acknowledged snapshot", async () => {
@@ -79,5 +80,11 @@ describe("SettingsSaveQueue", () => {
       }))
     ).rejects.toThrow("write failed")
     expect(queue.current().modesPrompts.activePromptModeId).toBe("general")
+  })
+
+  it("keeps rapid keybind edits in its latest snapshot", () => {
+    const draft = makeSettingsDraft(defaultSettingsSnapshot)
+    draft.apply((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, assist: "ctrl+shift+q" } }))
+    expect(canRebindKeybind(draft.current().keybinds, "submit", "ctrl+shift+q")).toBe(false)
   })
 })

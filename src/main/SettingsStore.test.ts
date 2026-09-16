@@ -8,6 +8,7 @@ import {
   defaultSettingsSnapshot,
   makeFileSettingsStoreLayer,
   makeSettingsStoreTestLayer,
+  SettingsStoreError,
   SettingsStore
 } from "./SettingsStore"
 
@@ -210,6 +211,35 @@ describe("SettingsStore", () => {
     expect(result.error.kind).toBe("write")
     expect(result.snapshot).toEqual(defaultSettingsSnapshot)
     await rm(directory, { force: true, recursive: true })
+  })
+  it("keeps the renamed snapshot after a durability warning", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const calls = yield* Ref.make(0)
+        const saved = yield* Ref.make<ReadonlyArray<typeof defaultSettingsSnapshot>>([])
+        const warning = new SettingsStoreError({ kind: "durability", message: "directory sync failed" })
+        const layer = makeSettingsStoreTestLayer(defaultSettingsSnapshot, (snapshot) =>
+          Effect.gen(function* () {
+            const call = yield* Ref.updateAndGet(calls, (count) => count + 1)
+            yield* Ref.update(saved, (snapshots) => [...snapshots, snapshot])
+            if (call === 1) {
+              return yield* Effect.fail(warning)
+            }
+          })
+        )
+        return yield* Effect.provide(
+          Effect.gen(function* () {
+            const store = yield* SettingsStore
+            const error = yield* Effect.flip(store.setKeybind("assist", "ctrl+shift+q"))
+            yield* store.setStealth({ autoHideOnPortalScreencast: false, showSingleWindowGuidance: false })
+            return { error, saved: yield* Ref.get(saved) }
+          }),
+          layer
+        )
+      })
+    )
+    expect(result.error.kind).toBe("durability")
+    expect(result.saved[1]?.keybinds.assist).toBe("ctrl+shift+q")
   })
   it("serializes snapshot writes in submission order", async () => {
     const result = await Effect.runPromise(

@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { canRebindKeybind } from "../../../shared/keybinds"
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../../shared/settingsIpc"
-import type { SettingsUpdate } from "../../../shared/settingsSaveQueue"
+import { makeSettingsDraft, type SettingsUpdate } from "../../../shared/settingsSaveQueue"
 import { SettingsPanel } from "./SettingsPanel"
 import type { ModesPromptsProviderOption } from "./ModesPrompts"
 
@@ -27,7 +27,9 @@ interface SettingsDashboardProps {
 
 export function SettingsDashboard(props: SettingsDashboardProps) {
   const [keybindError, setKeybindError] = useState("")
+  const settingsDraft = useRef(makeSettingsDraft(props.settings))
   const save = (update: SettingsUpdate): void => {
+    settingsDraft.current.apply(update)
     props.onSettingsChange(update)
   }
 
@@ -37,7 +39,7 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
         keybinds={props.settings.keybinds}
         modesPrompts={props.settings.modesPrompts}
         onKeybindRebind={(action, combo) => {
-          if (!canRebindKeybind(props.settings.keybinds, action, combo)) {
+          if (!canRebindKeybind(settingsDraft.current.current().keybinds, action, combo)) {
             setKeybindError("That shortcut is already assigned to another action.")
             return
           }

@@ -8,6 +8,22 @@ export interface SettingsSaveQueue {
   readonly hydrate: (snapshot: SettingsSnapshot) => boolean
 }
 
+export interface SettingsDraft {
+  readonly apply: (update: SettingsUpdate) => SettingsSnapshot
+  readonly current: () => SettingsSnapshot
+}
+
+export function makeSettingsDraft(initial: SettingsSnapshot): SettingsDraft {
+  let current = initial
+  return {
+    apply: (update) => {
+      current = update(current)
+      return current
+    },
+    current: () => current
+  }
+}
+
 export function makeSettingsSaveQueue(
   initial: SettingsSnapshot,
   save: (snapshot: SettingsSnapshot) => Promise<SettingsSnapshot>
