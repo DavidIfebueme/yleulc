@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Redacted } from "effect"
+import { ConfigProvider, Effect, Layer, Option, Redacted } from "effect"
 import { describe, expect, it } from "vitest"
 import { Keychain } from "./Keychain"
 import { makeProviderKeys, ProviderKeys } from "./ProviderKeys"
@@ -72,6 +72,29 @@ describe("ProviderKeys", () => {
     expect(result.before.hasKeychainKey).toBe(true)
     expect(result.before.registryMissing).toBe(false)
     expect(result.after.hasKeychainKey).toBe(false)
+  })
+  it("synchronizes saved and removed keys with the live provider registry", async () => {
+    const registry = Layer.provide(
+      ProviderRegistry.Live,
+      Layer.mergeAll(Keychain.Test, ConfigProvider.layer(ConfigProvider.fromEnvRecord({})))
+    )
+    const result = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const keys = yield* ProviderKeys
+          const before = yield* keys.status("openai")
+          yield* keys.saveKey("openai", Redacted.make("sk-test-openai"))
+          const saved = yield* keys.status("openai")
+          yield* keys.removeKey("openai")
+          const removed = yield* keys.status("openai")
+          return { before, removed, saved }
+        }),
+        ProviderKeys.Live.pipe(Layer.provide(Layer.mergeAll(Keychain.Test, registry)))
+      )
+    )
+    expect(result.before.registryMissing).toBe(true)
+    expect(result.saved.registryMissing).toBe(false)
+    expect(result.removed.registryMissing).toBe(true)
   })
   it("tests a saved key against the fixture provider with no network", async () => {
     const models = await Effect.runPromise(

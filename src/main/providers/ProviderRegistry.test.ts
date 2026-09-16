@@ -1,5 +1,6 @@
 import { ConfigProvider, Effect, Layer, Option, Stream } from "effect"
 import { describe, expect, it } from "vitest"
+import { Keychain } from "../Keychain"
 import {
   isProviderMissing,
   makeProviderRegistryWithMissing,
@@ -130,7 +131,7 @@ describe("ProviderRegistry", () => {
   })
   it("boots live with zero keys and exposes absence per provider", async () => {
     const configLayer = ConfigProvider.layer(ConfigProvider.fromEnvRecord({}))
-    const live = Layer.provide(ProviderRegistry.Live, configLayer)
+    const live = Layer.provide(ProviderRegistry.Live, Layer.mergeAll(Keychain.Test, configLayer))
     const registry = await Effect.runPromise(
       Effect.provide(Effect.gen(function* () {
         return yield* ProviderRegistry
@@ -172,7 +173,7 @@ describe("ProviderRegistry", () => {
         XAI_API_KEY: "test-xai"
       })
     )
-    const live = Layer.provide(ProviderRegistry.Live, configLayer)
+    const live = Layer.provide(ProviderRegistry.Live, Layer.mergeAll(Keychain.Test, configLayer))
     const registry = await Effect.runPromise(
       Effect.provide(Effect.gen(function* () {
         return yield* ProviderRegistry

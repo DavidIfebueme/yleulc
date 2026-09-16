@@ -1,16 +1,13 @@
 import { Context, Data, Effect, Layer, Option, Redacted } from "effect"
 import { Keychain } from "./Keychain"
 import type { KeychainShape } from "./Keychain"
+import { providerKeyAccount, providerKeyService } from "./ProviderKeyAccount"
 import { isProviderMissing, ProviderRegistry } from "./providers/ProviderRegistry"
 import type { ProviderRegistryShape } from "./providers/ProviderRegistry"
 import type { ProviderError } from "./providers/Provider"
 import type { ProviderId } from "./providers/Provider"
 
-export const providerKeyService = "yleulc"
-
-export function providerKeyAccount(id: ProviderId): string {
-  return id
-}
+export { providerKeyAccount, providerKeyService } from "./ProviderKeyAccount"
 
 export class ProviderKeyError extends Data.TaggedError("ProviderKeyError")<{
   readonly kind: "invalid-key" | "keychain" | "missing-key" | "unknown-provider"
@@ -52,12 +49,16 @@ export function makeProviderKeys(
         keychain.setPassword(providerKeyService, providerKeyAccount(id), Redacted.make(value)),
         (cause) => new ProviderKeyError({ kind: "keychain", message: cause.message, providerId: id })
       )
+      yield* registry.refresh()
     })
   const removeKey = (id: ProviderId) =>
-    Effect.mapError(
-      keychain.deletePassword(providerKeyService, providerKeyAccount(id)),
-      (cause) => new ProviderKeyError({ kind: "keychain", message: cause.message, providerId: id })
-    )
+    Effect.gen(function* () {
+      yield* Effect.mapError(
+        keychain.deletePassword(providerKeyService, providerKeyAccount(id)),
+        (cause) => new ProviderKeyError({ kind: "keychain", message: cause.message, providerId: id })
+      )
+      yield* registry.refresh()
+    })
   const status = (id: ProviderId) =>
     Effect.map(getKey(id), (stored) => ({
       hasKeychainKey: Option.isSome(stored),

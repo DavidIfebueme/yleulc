@@ -1,4 +1,7 @@
-import { Context, Effect, Layer, Option } from "effect"
+import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect"
+import { Keychain } from "../Keychain"
+import type { KeychainShape } from "../Keychain"
+import { providerKeyAccount, providerKeyService } from "../ProviderKeyAccount"
 import { AnthropicProvider } from "./AnthropicProvider"
 import { CustomProvider } from "./CustomProvider"
 import { DeepSeekProvider } from "./DeepSeekProvider"
@@ -12,17 +15,21 @@ import { TogetherProvider } from "./TogetherProvider"
 import { XAIProvider } from "./XAIProvider"
 import type { Provider, ProviderId } from "./Provider"
 
+type ConfigProviderService = ReturnType<typeof ConfigProvider.fromEnvRecord>
+
 export interface ProviderRegistryShape {
   readonly get: (id: ProviderId) => Option.Option<Provider>
   readonly missingKeys: ReadonlyArray<ProviderId>
   readonly providers: ReadonlyArray<Provider>
+  readonly refresh: () => Effect.Effect<void>
 }
 
 export function makeProviderRegistry(providers: ReadonlyArray<Provider>): ProviderRegistryShape {
   return {
     get: (id) => Option.fromNullishOr(providers.find((provider) => provider.id === id)),
     missingKeys: [],
-    providers
+    providers,
+    refresh: () => Effect.void
   }
 }
 
@@ -33,7 +40,8 @@ export function makeProviderRegistryWithMissing(
   return {
     get: (id) => Option.fromNullishOr(providers.find((provider) => provider.id === id)),
     missingKeys,
-    providers
+    providers,
+    refresh: () => Effect.void
   }
 }
 
@@ -164,10 +172,66 @@ const collectTolerantEntries = Effect.gen(function* () {
   return makeProviderRegistryWithMissing(present, missing)
 })
 
+function makeRefreshingProviderRegistry(
+  initial: ProviderRegistryShape,
+  reload: () => Effect.Effect<ProviderRegistryShape>
+): ProviderRegistryShape {
+  let current = initial
+  return {
+    get: (id) => current.get(id),
+    get missingKeys() {
+      return current.missingKeys
+    },
+    get providers() {
+      return current.providers
+    },
+    refresh: () => Effect.map(reload(), (next) => {
+      current = next
+    })
+  }
+}
+
+function keychainConfig(
+  keychain: KeychainShape,
+  fallback: ConfigProviderService
+): Effect.Effect<ConfigProviderService> {
+  return Effect.gen(function* () {
+    const keys: Record<string, string | undefined> = {}
+    for (const id of Object.keys(providerKeyEnvVars) as Array<ProviderId>) {
+      const envVar = providerKeyEnvVars[id]
+      if (envVar === undefined) {
+        continue
+      }
+      const stored = yield* keychain.getPassword(providerKeyService, providerKeyAccount(id))
+      if (Option.isSome(stored)) {
+        keys[envVar] = Redacted.value(stored.value)
+      }
+    }
+    return ConfigProvider.orElse(ConfigProvider.fromEnvRecord(keys), fallback)
+  })
+}
+
+function collectKeychainEntries(
+  keychain: KeychainShape,
+  fallback: ConfigProviderService
+): Effect.Effect<ProviderRegistryShape> {
+  return Effect.flatMap(keychainConfig(keychain, fallback), (config) =>
+    Effect.provide(collectTolerantEntries, ConfigProvider.layer(config))
+  )
+}
+
 export class ProviderRegistry extends Context.Service<ProviderRegistry, ProviderRegistryShape>()(
   "ProviderRegistry"
 ) {
-  static readonly Live = Layer.effect(ProviderRegistry, collectTolerantEntries)
+  static readonly Live = Layer.effect(
+    ProviderRegistry,
+    Effect.gen(function* () {
+      const keychain = yield* Keychain
+      const fallback = yield* ConfigProvider.ConfigProvider
+      const initial = yield* collectKeychainEntries(keychain, fallback)
+      return makeRefreshingProviderRegistry(initial, () => collectKeychainEntries(keychain, fallback))
+    })
+  )
   static readonly Test = Layer.effect(ProviderRegistry, collectStrictEntries).pipe(
     Layer.provide(
       Layer.mergeAll(
