@@ -1,5 +1,11 @@
 import { Schema } from "effect"
 
+export const listenStartChannel = "yleulc:listen-start"
+
+export const listenStopChannel = "yleulc:listen-stop"
+
+export const listenEventChannel = "yleulc:listen-event"
+
 export const maxListenEntries = 50
 
 export const ListenChannelSchema = Schema.Union([Schema.Literal("mic"), Schema.Literal("system")])
@@ -63,4 +69,75 @@ export function appendListenEntry(
 
 export function toAutoAnswerQuestion(entry: ListenTranscriptEntry): string {
   return entry.text.trim()
+}
+
+export const ListenStartRequestSchema = Schema.Struct({
+  sessionId: Schema.String
+})
+
+export type ListenStartRequest = typeof ListenStartRequestSchema.Type
+
+export const decodeListenStartRequest = Schema.decodeUnknownSync(ListenStartRequestSchema)
+
+export const encodeListenStartRequest = Schema.encodeSync(ListenStartRequestSchema)
+
+export const SystemAudioSupportSchema = Schema.Union([
+  Schema.Literal("supported"),
+  Schema.Literal("unsupported")
+])
+
+export type SystemAudioSupport = typeof SystemAudioSupportSchema.Type
+
+export const ListenSegmentEventSchema = Schema.TaggedStruct("segment", {
+  entry: ListenTranscriptEntrySchema
+})
+
+export const ListenErrorEventSchema = Schema.TaggedStruct("error", {
+  message: Schema.String
+})
+
+export const ListenStatusEventSchema = Schema.TaggedStruct("status", {
+  state: Schema.Union([Schema.Literal("started"), Schema.Literal("stopped")]),
+  systemAudio: SystemAudioSupportSchema
+})
+
+export const ListenEventSchema = Schema.Union([
+  ListenSegmentEventSchema,
+  ListenErrorEventSchema,
+  ListenStatusEventSchema
+])
+
+export type ListenEvent = typeof ListenEventSchema.Type
+
+export const decodeListenEvent = Schema.decodeUnknownSync(ListenEventSchema)
+
+export const encodeListenEvent = Schema.encodeSync(ListenEventSchema)
+
+export interface ListenViewState {
+  readonly entries: ReadonlyArray<ListenTranscriptEntry>
+  readonly errorMessage: string | undefined
+  readonly running: boolean
+  readonly systemAudio: SystemAudioSupport
+}
+
+export const initialListenViewState: ListenViewState = {
+  entries: [],
+  errorMessage: undefined,
+  running: false,
+  systemAudio: "unsupported"
+}
+
+export function applyListenEvent(
+  state: ListenViewState,
+  event: ListenEvent,
+  cap: number = maxListenEntries
+): ListenViewState {
+  switch (event._tag) {
+    case "segment":
+      return { ...state, entries: appendListenEntry(state.entries, event.entry, cap) }
+    case "error":
+      return { ...state, errorMessage: event.message }
+    case "status":
+      return { ...state, running: event.state === "started", systemAudio: event.systemAudio }
+  }
 }
