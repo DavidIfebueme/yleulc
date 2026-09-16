@@ -66,3 +66,7 @@ export function isKeybindConflicted(keybinds: KeybindMap, action: KeybindAction)
 export function rebindKeybind(keybinds: KeybindMap, action: KeybindAction, combo: string): KeybindMap {
   return { ...keybinds, [action]: combo.trim().toLowerCase() }
 }
+
+export function canRebindKeybind(keybinds: KeybindMap, action: KeybindAction, combo: string): boolean {
+  return !isKeybindConflicted(rebindKeybind(keybinds, action, combo), action)
+}

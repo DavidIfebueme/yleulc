@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { defaultKeybinds } from "../shared/keybinds"
+import { canRebindKeybind, defaultKeybinds } from "../shared/keybinds"
 import { overlayHotkeyAction } from "../shared/overlayHotkeys"
 
 describe("overlayHotkeyAction", () => {
@@ -12,5 +12,10 @@ describe("overlayHotkeyAction", () => {
       "submit"
     )
     expect(overlayHotkeyAction(keybinds, { altKey: false, ctrlKey: true, key: "Enter", metaKey: false, shiftKey: false })).toBeUndefined()
+  })
+
+  it("rejects a rebind that duplicates another action", () => {
+    expect(canRebindKeybind(defaultKeybinds, "submit", defaultKeybinds.assist)).toBe(false)
+    expect(canRebindKeybind(defaultKeybinds, "submit", "ctrl+shift+s")).toBe(true)
   })
 })

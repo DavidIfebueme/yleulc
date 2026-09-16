@@ -76,19 +76,6 @@ describe("SettingsStore", () => {
     )
     expect(outcome).toBe("deepgram")
   })
-  it("updates the active prompt mode in main-process state", async () => {
-    const activePromptModeId = await Effect.runPromise(
-      Effect.provide(
-        Effect.gen(function* () {
-          const store = yield* SettingsStore
-          yield* store.setActivePromptMode("sales")
-          return (yield* store.getModesPrompts()).activePromptModeId
-        }),
-        SettingsStore.Test
-      )
-    )
-    expect(activePromptModeId).toBe("sales")
-  })
   it("rebinds keybinds and surfaces conflict badges", async () => {
     const outcome = await Effect.runPromise(
       Effect.provide(

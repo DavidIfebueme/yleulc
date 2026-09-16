@@ -1,3 +1,5 @@
+import { useState } from "react"
+import { canRebindKeybind } from "../../../shared/keybinds"
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../../shared/settingsIpc"
 import type { SettingsUpdate } from "../../../shared/settingsSaveQueue"
 import { SettingsPanel } from "./SettingsPanel"
@@ -24,6 +26,7 @@ interface SettingsDashboardProps {
 }
 
 export function SettingsDashboard(props: SettingsDashboardProps) {
+  const [keybindError, setKeybindError] = useState("")
   const save = (update: SettingsUpdate): void => {
     props.onSettingsChange(update)
   }
@@ -34,6 +37,11 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
         keybinds={props.settings.keybinds}
         modesPrompts={props.settings.modesPrompts}
         onKeybindRebind={(action, combo) => {
+          if (!canRebindKeybind(props.settings.keybinds, action, combo)) {
+            setKeybindError("That shortcut is already assigned to another action.")
+            return
+          }
+          setKeybindError("")
           save((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } }))
         }}
         onModesPromptsChange={(update) => {
@@ -45,6 +53,7 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
         providerOptions={providerOptions}
       />
       {props.errorMessage === "" ? null : <p className="mt-2 text-xs text-red-300/80">{props.errorMessage}</p>}
+      {keybindError === "" ? null : <p className="mt-2 text-xs text-red-300/80">{keybindError}</p>}
     </>
   )
 }

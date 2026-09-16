@@ -44,7 +44,6 @@ export interface SettingsStoreShape {
   readonly reset: () => Effect.Effect<void, SettingsStoreError>
   readonly setSnapshot: (value: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError>
   readonly setKeybind: (action: KeybindAction, combo: string) => Effect.Effect<void, SettingsStoreError>
-  readonly setActivePromptMode: (id: string) => Effect.Effect<void, SettingsStoreError>
   readonly setModesPrompts: (value: ModesPromptsSettings) => Effect.Effect<void, SettingsStoreError>
   readonly setStealth: (value: StealthSettings) => Effect.Effect<void, SettingsStoreError>
   readonly setTranscriptionEngine: (value: TranscriptionEngineKind) => Effect.Effect<void, SettingsStoreError>
@@ -77,12 +76,6 @@ function makeSettingsStore(
     setSnapshot,
     setKeybind: (action, combo) =>
       updateSnapshot((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })),
-    setActivePromptMode: (id) =>
-      updateSnapshot((snapshot) =>
-        snapshot.modesPrompts.promptModes.some((mode) => mode.id === id)
-          ? { ...snapshot, modesPrompts: { ...snapshot.modesPrompts, activePromptModeId: id } }
-          : snapshot
-      ),
     setModesPrompts: (value) => updateSnapshot((snapshot) => ({ ...snapshot, modesPrompts: value })),
     setStealth: (value) => updateSnapshot((snapshot) => ({ ...snapshot, stealth: value })),
     setTranscriptionEngine: (value) => updateSnapshot((snapshot) => ({ ...snapshot, transcriptionEngine: value }))
