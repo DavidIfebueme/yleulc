@@ -10,6 +10,7 @@ import {
 } from "../shared/askIpc"
 import { AssistRequestSchema, assistHotkeyChannel, assistRequestChannel } from "../shared/assistIpc"
 import { appVersionChannel } from "../shared/yleulcBridge"
+import { protectionGetChannel, protectionProtectAllChannel, protectionRelaunchChannel, protectionUnwrappedChannel } from "../shared/protectionIpc"
 import {
   ListenStartRequestSchema,
   listenEventChannel,
@@ -41,6 +42,9 @@ import { getSettings, saveSettings } from "./SettingsIpc"
 import { deleteMeeting, exportMeetingMarkdown, getMeeting, listMeetings, saveMeeting } from "./MeetingIpc"
 import { MeetingStore } from "./MeetingStore"
 import { SettingsStore } from "./SettingsStore"
+import { ProtectionService, ProtectionSystem, ProtectionTicker } from "./ProtectionService"
+import { getProtectionDashboard, protectAllApps, relaunchProtectedApp } from "./ProtectionIpc"
+import { WrapperRegistry } from "./WrapperRegistry"
 import { createOverlayWindow } from "./overlay"
 import { makeGlobalAssistHotkey } from "./GlobalAssistHotkey"
 
@@ -71,6 +75,7 @@ const program = Effect.gen(function* () {
   const captureService = yield* CaptureService
   const settingsStore = yield* SettingsStore
   const meetingStore = yield* MeetingStore
+  const protectionService = yield* ProtectionService
   let registerAssistHotkey: (settings: SettingsSnapshot) => void = () => {}
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
@@ -136,6 +141,17 @@ const program = Effect.gen(function* () {
     ipcMain.handle(meetingDeleteChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
       Effect.runPromise(deleteMeeting(raw, meetingStore))
     )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(protectionGetChannel, (): Promise<unknown> => Effect.runPromise(getProtectionDashboard(protectionService)))
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(protectionRelaunchChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(relaunchProtectedApp(raw, protectionService))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(protectionProtectAllChannel, (): Promise<unknown> => Effect.runPromise(protectAllApps(protectionService)))
   })
   yield* Effect.sync(() => {
     ipcMain.handle(askRequestChannel, (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
@@ -251,6 +267,13 @@ const program = Effect.gen(function* () {
   })
   yield* Effect.sync(() => {
     const overlay = createOverlayWindow(config)
+    const stopWatcher = Effect.runSync(
+      protectionService.watchUnwrapped((protectedApp) =>
+        Effect.sync(() => {
+          overlay.webContents.send(protectionUnwrappedChannel, protectedApp)
+        })
+      )
+    )
     const hotkey = makeGlobalAssistHotkey(globalShortcut, () => {
       overlay.webContents.send(assistHotkeyChannel)
     })
@@ -262,8 +285,9 @@ const program = Effect.gen(function* () {
         hotkey.register(keybinds.assist)
       })
     )
-    app.on("will-quit", () => {
+    app.on("before-quit", () => {
       hotkey.unregister()
+      stopWatcher()
     })
   })
 })
@@ -277,7 +301,11 @@ const main = Effect.catch(
       CaptureService.Live,
       AssistService.Live.pipe(Layer.provide(Layer.merge(AskService.Test, CaptureService.Live))),
       SettingsStore.Live,
-      MeetingStore.Live
+      MeetingStore.Live,
+      WrapperRegistry.Live,
+      ProtectionSystem.Live,
+      ProtectionTicker.Live,
+      Layer.provide(ProtectionService.Live, Layer.mergeAll(WrapperRegistry.Live, ProtectionSystem.Live, ProtectionTicker.Live))
     )
   ),
   (error) =>

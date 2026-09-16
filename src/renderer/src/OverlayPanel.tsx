@@ -6,6 +6,7 @@ import { makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/setting
 import { AskPanel } from "./ask/AskPanel"
 import { MeetingPanel } from "./history/MeetingPanel"
 import { SettingsDashboard } from "./settings/SettingsDashboard"
+import { ProtectionDashboard } from "./protection/ProtectionDashboard"
 
 export function OverlayPanel() {
   const [settings, setSettings] = useState<SettingsSnapshot | undefined>(() =>
@@ -14,6 +15,7 @@ export function OverlayPanel() {
   const [settingsSaveError, setSettingsSaveError] = useState("")
   const [showSettings, setShowSettings] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const [showProtection, setShowProtection] = useState(false)
   const [meetingTranscript, setMeetingTranscript] = useState<MeetingTranscript>([])
   const saveQueue = useRef(
     makeSettingsSaveQueue(defaultSettingsSnapshot, (snapshot) =>
@@ -63,6 +65,7 @@ export function OverlayPanel() {
             onClick={() => {
               setShowActivity((visible) => !visible)
               setShowSettings(false)
+              setShowProtection(false)
             }}
             className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
           >
@@ -73,13 +76,29 @@ export function OverlayPanel() {
             onClick={() => {
               setShowSettings((visible) => !visible)
               setShowActivity(false)
+              setShowProtection(false)
             }}
             className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
           >
             {showSettings ? "Back" : "Settings"}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowProtection((visible) => !visible)
+              setShowActivity(false)
+              setShowSettings(false)
+            }}
+            className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
+          >
+            {showProtection ? "Back" : "Protection"}
+          </button>
         </div>
-        {showActivity ? (
+        {showProtection ? (
+          <div className="w-[400px]">
+            <ProtectionDashboard />
+          </div>
+        ) : showActivity ? (
           <div className="w-[400px]">
             <MeetingPanel transcript={meetingTranscript} />
           </div>

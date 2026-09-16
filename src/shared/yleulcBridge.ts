@@ -5,6 +5,7 @@ import type { Meeting, MeetingSummary, SaveMeetingInput } from "./meeting"
 import type { MeetingIdRequest } from "./meetingIpc"
 import type { CropRect, ScreenshotImage } from "./screenshot"
 import type { SettingsSnapshot } from "./settingsIpc"
+import type { ProtectionDashboard } from "./protectionIpc"
 
 export const appVersionChannel = "yleulc:app-version"
 
@@ -27,4 +28,8 @@ export interface YleulcBridge {
   readonly getMeeting: (request: MeetingIdRequest) => Promise<Meeting>
   readonly exportMeetingMarkdown: (request: MeetingIdRequest) => Promise<string>
   readonly deleteMeeting: (request: MeetingIdRequest) => Promise<void>
+  readonly getProtectionDashboard: () => Promise<ProtectionDashboard>
+  readonly relaunchProtectedApp: (id: ProtectionDashboard["apps"][number]["id"]) => Promise<ProtectionDashboard>
+  readonly protectAllApps: () => Promise<ProtectionDashboard>
+  readonly onProtectionUnwrapped: (listener: (app: ProtectionDashboard["apps"][number]) => void) => () => void
 }
