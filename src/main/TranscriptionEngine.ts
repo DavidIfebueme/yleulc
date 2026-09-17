@@ -4,13 +4,15 @@ import type { AudioCaptureError, AudioFrame } from "./AudioCapture"
 import { defaultSegmentationConfig, planSegments } from "./SegmentationPolicy"
 import type { SegmentSpan } from "./SegmentationPolicy"
 import { TranscriptionError, type TranscriptSegment, type Utterance } from "./Transcription"
+import { AssemblyaiError, AssemblyaiSessionFactory, assemblyaiTerminatePayload } from "./AssemblyaiBackend"
 import { WhisperBackend } from "./WhisperBackend"
 import type { BootstrapError } from "./WhisperBootstrap"
 import { DeepgramError, DeepgramSessionFactory, deepgramFinalizePayload } from "./DeepgramBackend"
 
 export const TranscriptionEngineKindSchema = Schema.Union([
   Schema.Literal("local"),
-  Schema.Literal("deepgram")
+  Schema.Literal("deepgram"),
+  Schema.Literal("assemblyai")
 ])
 
 export type TranscriptionEngineKind = typeof TranscriptionEngineKindSchema.Type
@@ -96,7 +98,7 @@ export interface TranscribeUtteranceInput {
   readonly span: SegmentSpan
 }
 
-export type TranscriptionEngineError = TranscriptionError | BootstrapError | DeepgramError
+export type TranscriptionEngineError = TranscriptionError | BootstrapError | DeepgramError | AssemblyaiError
 
 export interface TranscriptionEngineShape {
   readonly backendKind: TranscriptionEngineKind
@@ -121,6 +123,7 @@ export class TranscriptionEngine extends Context.Service<TranscriptionEngine, Tr
       const localLanguage = yield* Config.withDefault(Config.String("YLEULC_WHISPER_LANGUAGE"), "en")
       const whisper = yield* WhisperBackend
       const sessions = yield* DeepgramSessionFactory
+      const assemblyaiSessions = yield* AssemblyaiSessionFactory
       const scorer = yield* VadScorer
       const transcribeLocal = (
         input: TranscribeUtteranceInput
@@ -198,11 +201,73 @@ export class TranscriptionEngine extends Context.Service<TranscriptionEngine, Tr
             )
           })
         )
+      const transcribeAssemblyai = (
+        input: TranscribeUtteranceInput
+      ): Effect.Effect<Utterance, AssemblyaiError> =>
+        Effect.gen(function* () {
+          const session = yield* assemblyaiSessions.open
+          yield* session.sendAudio(input.pcm)
+          yield* session.sendJson(assemblyaiTerminatePayload)
+          const first = yield* Stream.runCollect(
+            session.segments.pipe(
+              Stream.filter((segment) => !segment.interim),
+              Stream.take(1)
+            )
+          ).pipe(Effect.ensuring(Effect.ignore(session.terminate)))
+          const segment = Array.from(first)[0]
+          if (segment === undefined) {
+            return yield* Effect.fail(
+              new AssemblyaiError({ operation: "transcribeUtterance", reason: "no final transcript" })
+            )
+          }
+          return {
+            endMs: input.span.endMs,
+            id: input.id,
+            interim: false as const,
+            language: segment.language,
+            startMs: input.span.startMs,
+            text: segment.text
+          }
+        })
+      const listenAssemblyai = (
+        frames: Stream.Stream<AudioFrame, AudioCaptureError>
+      ): Stream.Stream<TranscriptSegment, AssemblyaiError | AudioCaptureError> =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const session = yield* assemblyaiSessions.open
+            const pump = Stream.runDrain(
+              Stream.mapEffect(
+                Stream.map(frames, (frame) => frame.pcm),
+                (pcm) => session.sendAudio(pcm)
+              )
+            )
+            const pumpFiber = Effect.runFork(Effect.ensuring(pump, Effect.ignore(session.terminate)))
+            const pumpOutcome = Stream.fromEffect(Fiber.join(pumpFiber)).pipe(
+              Stream.flatMap(() => Stream.empty)
+            )
+            return Stream.merge(session.segments, pumpOutcome).pipe(
+              Stream.ensuring(
+                Effect.ignore(
+                  Effect.flatMap(Fiber.interrupt(pumpFiber), () => session.terminate)
+                )
+              )
+            )
+          })
+        )
       return TranscriptionEngine.of({
         backendKind,
-        listen: (frames) => (backendKind === "deepgram" ? listenDeepgram(frames) : listenLocal(frames)),
+        listen: (frames) =>
+          backendKind === "assemblyai"
+            ? listenAssemblyai(frames)
+            : backendKind === "deepgram"
+              ? listenDeepgram(frames)
+              : listenLocal(frames),
         transcribeUtterance: (input) =>
-          backendKind === "deepgram" ? transcribeDeepgram(input) : transcribeLocal(input)
+          backendKind === "assemblyai"
+            ? transcribeAssemblyai(input)
+            : backendKind === "deepgram"
+              ? transcribeDeepgram(input)
+              : transcribeLocal(input)
       })
     })
   )

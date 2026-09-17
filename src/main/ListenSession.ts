@@ -53,6 +53,7 @@ export function listenAnswerRequestId(entry: ListenTranscriptEntry): string {
 export function describeListenFailure(cause: ListenFailure): string {
   switch (cause._tag) {
     case "AudioCaptureError":
+    case "AssemblyaiError":
     case "BootstrapError":
     case "DeepgramError":
     case "TranscriptionError":

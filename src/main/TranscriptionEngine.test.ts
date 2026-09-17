@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest"
 import { makeAudioCaptureTestLayer, type AudioFrame } from "./AudioCapture"
 import { AudioCapture } from "./AudioCapture"
 import {
+  buildAssemblyaiSocketHarness,
+  assemblyaiTerminatePayload,
+  AssemblyaiSessionFactory
+} from "./AssemblyaiBackend"
+import {
   buildDeepgramSocketHarness,
   deepgramCloseStreamPayload,
   deepgramFinalizePayload,
@@ -79,6 +84,22 @@ const interimEvent = JSON.stringify({
   type: "Results"
 })
 
+const assemblyaiFinalEvent = JSON.stringify({
+  end_of_turn: true,
+  transcript: "note the action item",
+  turn_is_formatted: true,
+  turn_order: 0,
+  type: "Turn"
+})
+
+const assemblyaiInterimEvent = JSON.stringify({
+  end_of_turn: false,
+  transcript: "note the",
+  turn_is_formatted: false,
+  turn_order: 0,
+  type: "Turn"
+})
+
 function localEngineLayer(
   transcribeText: (input: TranscribeUtteranceInput) => string,
   score: number
@@ -96,13 +117,19 @@ function localEngineLayer(
   const scorer = makeVadScorerTestLayer(() => Effect.succeed(score))
   return Layer.provide(
     TranscriptionEngine.Live,
-    Layer.mergeAll(backend, DeepgramSessionFactory.Test, scorer)
+    Layer.mergeAll(backend, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, scorer)
   )
 }
 
 function deepgramProviderLayer() {
   return ConfigProvider.layer(
     ConfigProvider.fromEnvRecord({ DEEPGRAM_API_KEY: "test-key", YLEULC_TRANSCRIPTION_ENGINE: "deepgram" })
+  )
+}
+
+function assemblyaiProviderLayer() {
+  return ConfigProvider.layer(
+    ConfigProvider.fromEnvRecord({ ASSEMBLYAI_API_KEY: "test-key", YLEULC_TRANSCRIPTION_ENGINE: "assemblyai" })
   )
 }
 
@@ -186,7 +213,7 @@ describe("TranscriptionEngine", () => {
         }),
         Layer.provide(
           TranscriptionEngine.Live,
-          Layer.mergeAll(WhisperBackend.Test, DeepgramSessionFactory.Test, VadScorer.Test)
+          Layer.mergeAll(WhisperBackend.Test, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, VadScorer.Test)
         )
       )
     )
@@ -225,7 +252,13 @@ describe("TranscriptionEngine", () => {
         const factoryLayer = Layer.provide(DeepgramSessionFactory.Live, harness.layer)
         const engineLayer = Layer.provide(
           TranscriptionEngine.Live,
-          Layer.mergeAll(WhisperBackend.Test, factoryLayer, VadScorer.Test, deepgramProviderLayer())
+          Layer.mergeAll(
+            WhisperBackend.Test,
+            factoryLayer,
+            AssemblyaiSessionFactory.Test,
+            VadScorer.Test,
+            deepgramProviderLayer()
+          )
         )
         const inner = Effect.gen(function* () {
           const engine = yield* TranscriptionEngine
@@ -255,7 +288,13 @@ describe("TranscriptionEngine", () => {
         const factoryLayer = Layer.provide(DeepgramSessionFactory.Live, harness.layer)
         const engineLayer = Layer.provide(
           TranscriptionEngine.Live,
-          Layer.mergeAll(WhisperBackend.Test, factoryLayer, VadScorer.Test, deepgramProviderLayer())
+          Layer.mergeAll(
+            WhisperBackend.Test,
+            factoryLayer,
+            AssemblyaiSessionFactory.Test,
+            VadScorer.Test,
+            deepgramProviderLayer()
+          )
         )
         const inner = Effect.gen(function* () {
           const engine = yield* TranscriptionEngine
@@ -266,6 +305,77 @@ describe("TranscriptionEngine", () => {
         const segments = yield* Effect.provide(
           inner,
           Layer.mergeAll(engineLayer, makeAudioCaptureTestLayer(frameFixtures(2)), deepgramProviderLayer())
+        )
+        const audio = yield* harness.audioSent
+        const closed = yield* harness.closed
+        return { audio, closed, segments }
+      })
+    )
+    expect(outcome.segments.map((segment) => segment.interim)).toEqual([true, false])
+    expect(outcome.audio.length).toBe(2)
+    expect(outcome.closed).toBe(true)
+  })
+  it("transcribes one utterance through an assemblyai session", async () => {
+    const outcome = await Effect.runPromise(
+      Effect.gen(function* () {
+        const harness = yield* buildAssemblyaiSocketHarness([assemblyaiFinalEvent])
+        const factoryLayer = Layer.provide(AssemblyaiSessionFactory.Live, harness.layer)
+        const engineLayer = Layer.provide(
+          TranscriptionEngine.Live,
+          Layer.mergeAll(
+            WhisperBackend.Test,
+            DeepgramSessionFactory.Test,
+            factoryLayer,
+            VadScorer.Test,
+            assemblyaiProviderLayer()
+          )
+        )
+        const inner = Effect.gen(function* () {
+          const engine = yield* TranscriptionEngine
+          const utterance = yield* engine.transcribeUtterance(utteranceInput)
+          return { kind: engine.backendKind, utterance }
+        })
+        const result = yield* Effect.provide(inner, Layer.merge(engineLayer, assemblyaiProviderLayer()))
+        const json = yield* harness.jsonSent
+        const closed = yield* harness.closed
+        return { ...result, closed, json }
+      })
+    )
+    expect(outcome.kind).toBe("assemblyai")
+    expect(outcome.utterance).toMatchObject({
+      endMs: 2500,
+      id: "utt-007",
+      interim: false,
+      startMs: 1200,
+      text: "note the action item"
+    })
+    expect(outcome.json).toEqual([assemblyaiTerminatePayload, assemblyaiTerminatePayload])
+    expect(outcome.closed).toBe(true)
+  })
+  it("streams interim and final segments from assemblyai", async () => {
+    const outcome = await Effect.runPromise(
+      Effect.gen(function* () {
+        const harness = yield* buildAssemblyaiSocketHarness([assemblyaiInterimEvent, assemblyaiFinalEvent])
+        const factoryLayer = Layer.provide(AssemblyaiSessionFactory.Live, harness.layer)
+        const engineLayer = Layer.provide(
+          TranscriptionEngine.Live,
+          Layer.mergeAll(
+            WhisperBackend.Test,
+            DeepgramSessionFactory.Test,
+            factoryLayer,
+            VadScorer.Test,
+            assemblyaiProviderLayer()
+          )
+        )
+        const inner = Effect.gen(function* () {
+          const engine = yield* TranscriptionEngine
+          const capture = yield* AudioCapture
+          const collected = yield* Stream.runCollect(engine.listen(capture.frames))
+          return Array.from(collected)
+        })
+        const segments = yield* Effect.provide(
+          inner,
+          Layer.mergeAll(engineLayer, makeAudioCaptureTestLayer(frameFixtures(2)), assemblyaiProviderLayer())
         )
         const audio = yield* harness.audioSent
         const closed = yield* harness.closed
