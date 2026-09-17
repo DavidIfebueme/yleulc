@@ -58,7 +58,7 @@ export const StealthSettingsSchema = Schema.Struct({
 
 export type StealthSettings = typeof StealthSettingsSchema.Type
 
-export const TranscriptionEngineKindSchema = Schema.Union([Schema.Literal("local"), Schema.Literal("deepgram"), Schema.Literal("assemblyai")])
+export const TranscriptionEngineKindSchema = Schema.Union([Schema.Literal("local"), Schema.Literal("deepgram"), Schema.Literal("assemblyai"), Schema.Literal("azure")])
 
 export type TranscriptionEngineKind = typeof TranscriptionEngineKindSchema.Type
 

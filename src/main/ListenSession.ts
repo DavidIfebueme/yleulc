@@ -54,6 +54,7 @@ export function describeListenFailure(cause: ListenFailure): string {
   switch (cause._tag) {
     case "AudioCaptureError":
     case "AssemblyaiError":
+    case "AzureError":
     case "BootstrapError":
     case "DeepgramError":
     case "TranscriptionError":

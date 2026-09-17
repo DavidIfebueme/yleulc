@@ -7,6 +7,7 @@ import {
   assemblyaiTerminatePayload,
   AssemblyaiSessionFactory
 } from "./AssemblyaiBackend"
+import { AzureBackend, makeAzureBackendTestLayer } from "./AzureBackend"
 import {
   buildDeepgramSocketHarness,
   deepgramCloseStreamPayload,
@@ -117,7 +118,7 @@ function localEngineLayer(
   const scorer = makeVadScorerTestLayer(() => Effect.succeed(score))
   return Layer.provide(
     TranscriptionEngine.Live,
-    Layer.mergeAll(backend, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, scorer)
+    Layer.mergeAll(backend, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, AzureBackend.Test, scorer)
   )
 }
 
@@ -130,6 +131,16 @@ function deepgramProviderLayer() {
 function assemblyaiProviderLayer() {
   return ConfigProvider.layer(
     ConfigProvider.fromEnvRecord({ ASSEMBLYAI_API_KEY: "test-key", YLEULC_TRANSCRIPTION_ENGINE: "assemblyai" })
+  )
+}
+
+function azureProviderLayer() {
+  return ConfigProvider.layer(
+    ConfigProvider.fromEnvRecord({
+      AZURE_SPEECH_KEY: "test-key",
+      AZURE_SPEECH_REGION: "eastus",
+      YLEULC_TRANSCRIPTION_ENGINE: "azure"
+    })
   )
 }
 
@@ -213,7 +224,7 @@ describe("TranscriptionEngine", () => {
         }),
         Layer.provide(
           TranscriptionEngine.Live,
-          Layer.mergeAll(WhisperBackend.Test, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, VadScorer.Test)
+          Layer.mergeAll(WhisperBackend.Test, DeepgramSessionFactory.Test, AssemblyaiSessionFactory.Test, AzureBackend.Test, VadScorer.Test)
         )
       )
     )
@@ -256,6 +267,7 @@ describe("TranscriptionEngine", () => {
             WhisperBackend.Test,
             factoryLayer,
             AssemblyaiSessionFactory.Test,
+            AzureBackend.Test,
             VadScorer.Test,
             deepgramProviderLayer()
           )
@@ -292,6 +304,7 @@ describe("TranscriptionEngine", () => {
             WhisperBackend.Test,
             factoryLayer,
             AssemblyaiSessionFactory.Test,
+            AzureBackend.Test,
             VadScorer.Test,
             deepgramProviderLayer()
           )
@@ -325,6 +338,7 @@ describe("TranscriptionEngine", () => {
           Layer.mergeAll(
             WhisperBackend.Test,
             DeepgramSessionFactory.Test,
+            AzureBackend.Test,
             factoryLayer,
             VadScorer.Test,
             assemblyaiProviderLayer()
@@ -362,6 +376,7 @@ describe("TranscriptionEngine", () => {
           Layer.mergeAll(
             WhisperBackend.Test,
             DeepgramSessionFactory.Test,
+            AzureBackend.Test,
             factoryLayer,
             VadScorer.Test,
             assemblyaiProviderLayer()
@@ -385,6 +400,96 @@ describe("TranscriptionEngine", () => {
     expect(outcome.segments.map((segment) => segment.interim)).toEqual([true, false])
     expect(outcome.audio.length).toBe(2)
     expect(outcome.closed).toBe(true)
+  })
+  it("transcribes one utterance through the azure backend", async () => {
+    const azureDouble = makeAzureBackendTestLayer((input) =>
+      Effect.succeed({
+        endMs: input.span.endMs,
+        id: input.id,
+        interim: false as const,
+        language: input.language,
+        startMs: input.span.startMs,
+        text: "azure transcript"
+      })
+    )
+    const outcome = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const engine = yield* TranscriptionEngine
+          const utterance = yield* engine.transcribeUtterance(utteranceInput)
+          return { kind: engine.backendKind, utterance }
+        }),
+        Layer.mergeAll(
+          Layer.provide(
+            TranscriptionEngine.Live,
+            Layer.mergeAll(
+              WhisperBackend.Test,
+              DeepgramSessionFactory.Test,
+              AssemblyaiSessionFactory.Test,
+              azureDouble,
+              VadScorer.Test,
+              azureProviderLayer()
+            )
+          ),
+          azureProviderLayer()
+        )
+      )
+    )
+    expect(outcome.kind).toBe("azure")
+    expect(outcome.utterance).toMatchObject({
+      endMs: 2500,
+      id: "utt-007",
+      interim: false,
+      language: "en",
+      startMs: 1200,
+      text: "azure transcript"
+    })
+  })
+  it("segments captured frames into utterances on the azure backend", async () => {
+    const azureDouble = makeAzureBackendTestLayer((input) =>
+      Effect.succeed({
+        endMs: input.span.endMs,
+        id: input.id,
+        interim: false as const,
+        language: input.language,
+        startMs: input.span.startMs,
+        text: `text:${input.id}`
+      })
+    )
+    const segments = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const engine = yield* TranscriptionEngine
+          const capture = yield* AudioCapture
+          const collected = yield* Stream.runCollect(engine.listen(capture.frames))
+          return Array.from(collected)
+        }),
+        Layer.mergeAll(
+          Layer.provide(
+            TranscriptionEngine.Live,
+            Layer.mergeAll(
+              WhisperBackend.Test,
+              DeepgramSessionFactory.Test,
+              AssemblyaiSessionFactory.Test,
+              azureDouble,
+              makeVadScorerTestLayer(() => Effect.succeed(0.95)),
+              azureProviderLayer()
+            )
+          ),
+          makeAudioCaptureTestLayer(frameFixtures(20)),
+          azureProviderLayer()
+        )
+      )
+    )
+    expect(segments.length).toBe(1)
+    expect(segments[0]).toMatchObject({
+      endMs: 380,
+      id: "azure-0",
+      interim: false,
+      language: "en",
+      startMs: 0,
+      text: "text:azure-0"
+    })
   })
   it("serves canned results from the test layer", async () => {
     const outcome = await Effect.runPromise(

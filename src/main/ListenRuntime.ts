@@ -5,6 +5,7 @@ import { AskService } from "./AskService"
 import { AudioCapture } from "./AudioCapture"
 import { DeepgramSessionFactory, DeepgramSocketFactory } from "./DeepgramBackend"
 import { AssemblyaiSessionFactory, AssemblyaiSocketFactory } from "./AssemblyaiBackend"
+import { AzureBackend } from "./AzureBackend"
 import { ListenIpcError, runListenSession } from "./ListenIpc"
 import { describeListenFailure, ListenSession } from "./ListenSession"
 import { systemAudioSupport } from "./SystemAudio"
@@ -23,7 +24,7 @@ const DeepgramFactoryLive = DeepgramSessionFactory.Live.pipe(Layer.provide(Deepg
 const AssemblyaiFactoryLive = AssemblyaiSessionFactory.Live.pipe(Layer.provide(AssemblyaiSocketFactory.Live))
 
 const TranscriptionEngineLive = TranscriptionEngine.Live.pipe(
-  Layer.provide(Layer.mergeAll(WhisperBackendLive, DeepgramFactoryLive, AssemblyaiFactoryLive, VadScorer.Live))
+  Layer.provide(Layer.mergeAll(WhisperBackendLive, DeepgramFactoryLive, AssemblyaiFactoryLive, AzureBackend.Live, VadScorer.Live))
 )
 
 export const ListenLive = Layer.mergeAll(

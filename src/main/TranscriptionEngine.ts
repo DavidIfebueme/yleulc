@@ -5,6 +5,8 @@ import { defaultSegmentationConfig, planSegments } from "./SegmentationPolicy"
 import type { SegmentSpan } from "./SegmentationPolicy"
 import { TranscriptionError, type TranscriptSegment, type Utterance } from "./Transcription"
 import { AssemblyaiError, AssemblyaiSessionFactory, assemblyaiTerminatePayload } from "./AssemblyaiBackend"
+import { AzureBackend } from "./AzureBackend"
+import type { AzureError } from "./AzureBackend"
 import { WhisperBackend } from "./WhisperBackend"
 import type { BootstrapError } from "./WhisperBootstrap"
 import { DeepgramError, DeepgramSessionFactory, deepgramFinalizePayload } from "./DeepgramBackend"
@@ -12,7 +14,8 @@ import { DeepgramError, DeepgramSessionFactory, deepgramFinalizePayload } from "
 export const TranscriptionEngineKindSchema = Schema.Union([
   Schema.Literal("local"),
   Schema.Literal("deepgram"),
-  Schema.Literal("assemblyai")
+  Schema.Literal("assemblyai"),
+  Schema.Literal("azure")
 ])
 
 export type TranscriptionEngineKind = typeof TranscriptionEngineKindSchema.Type
@@ -98,7 +101,7 @@ export interface TranscribeUtteranceInput {
   readonly span: SegmentSpan
 }
 
-export type TranscriptionEngineError = TranscriptionError | BootstrapError | DeepgramError | AssemblyaiError
+export type TranscriptionEngineError = TranscriptionError | BootstrapError | DeepgramError | AssemblyaiError | AzureError
 
 export interface TranscriptionEngineShape {
   readonly backendKind: TranscriptionEngineKind
@@ -124,6 +127,7 @@ export class TranscriptionEngine extends Context.Service<TranscriptionEngine, Tr
       const whisper = yield* WhisperBackend
       const sessions = yield* DeepgramSessionFactory
       const assemblyaiSessions = yield* AssemblyaiSessionFactory
+      const azureBackend = yield* AzureBackend
       const scorer = yield* VadScorer
       const transcribeLocal = (
         input: TranscribeUtteranceInput
@@ -254,20 +258,55 @@ export class TranscriptionEngine extends Context.Service<TranscriptionEngine, Tr
             )
           })
         )
+      const transcribeAzure = (
+        input: TranscribeUtteranceInput
+      ): Effect.Effect<Utterance, AzureError | TranscriptionError> =>
+        azureBackend.transcribeSegment({ id: input.id, language: input.language, pcm: input.pcm, span: input.span })
+      const listenAzure = (
+        frames: Stream.Stream<AudioFrame, AudioCaptureError>
+      ): Stream.Stream<TranscriptSegment, AzureError | TranscriptionError | AudioCaptureError> =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const collected = yield* Stream.runCollect(frames)
+            const list = Array.from(collected)
+            const probabilities = yield* Effect.forEach(list, (frame) => scorer.scoreFrame(frame.pcm))
+            const vadFrames = list.map((frame, index) => ({
+              speechProbability: probabilities[index] ?? 0,
+              timeMs: frame.capturedAtMs
+            }))
+            const spans = planSegments(vadFrames, defaultSegmentationConfig)
+            const utterances = yield* Effect.forEach(spans, (span, index) =>
+              transcribeAzure({ id: `azure-${index}`, language: localLanguage, pcm: sliceSpanPcm(list, span), span })
+            )
+            return Stream.fromIterable(utterances)
+          })
+        )
       return TranscriptionEngine.of({
         backendKind,
-        listen: (frames) =>
-          backendKind === "assemblyai"
-            ? listenAssemblyai(frames)
-            : backendKind === "deepgram"
-              ? listenDeepgram(frames)
-              : listenLocal(frames),
-        transcribeUtterance: (input) =>
-          backendKind === "assemblyai"
-            ? transcribeAssemblyai(input)
-            : backendKind === "deepgram"
-              ? transcribeDeepgram(input)
-              : transcribeLocal(input)
+        listen: (frames) => {
+          if (backendKind === "assemblyai") {
+            return listenAssemblyai(frames)
+          }
+          if (backendKind === "deepgram") {
+            return listenDeepgram(frames)
+          }
+          if (backendKind === "azure") {
+            return listenAzure(frames)
+          }
+          return listenLocal(frames)
+        },
+        transcribeUtterance: (input) => {
+          if (backendKind === "assemblyai") {
+            return transcribeAssemblyai(input)
+          }
+          if (backendKind === "deepgram") {
+            return transcribeDeepgram(input)
+          }
+          if (backendKind === "azure") {
+            return transcribeAzure(input)
+          }
+          return transcribeLocal(input)
+        }
       })
     })
   )

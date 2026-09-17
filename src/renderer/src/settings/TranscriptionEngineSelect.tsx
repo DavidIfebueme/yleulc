@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react"
 
-export type TranscriptionEngineOption = "assemblyai" | "deepgram" | "local"
+export type TranscriptionEngineOption = "assemblyai" | "azure" | "deepgram" | "local"
 
 interface TranscriptionEngineSelectProps {
   readonly onChange: (value: TranscriptionEngineOption) => void
@@ -10,7 +10,8 @@ interface TranscriptionEngineSelectProps {
 export function TranscriptionEngineSelect(props: TranscriptionEngineSelectProps) {
   const handleChange = (event: ChangeEvent<HTMLSelectElement>): void => {
     const value = event.currentTarget.value
-    const next: TranscriptionEngineOption = value === "assemblyai" || value === "deepgram" ? value : "local"
+    const next: TranscriptionEngineOption =
+      value === "assemblyai" || value === "azure" || value === "deepgram" ? value : "local"
     props.onChange(next)
   }
   return (
@@ -24,6 +25,7 @@ export function TranscriptionEngineSelect(props: TranscriptionEngineSelectProps)
         <option value="local">Local whisper</option>
         <option value="deepgram">Deepgram</option>
         <option value="assemblyai">AssemblyAI</option>
+        <option value="azure">Azure</option>
       </select>
     </label>
   )
