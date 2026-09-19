@@ -11,6 +11,9 @@ import {
   sha256Hex,
   WhisperBootstrap,
   WhisperFileSystem,
+  defaultWhisperModel,
+  whisperCpuArchiveAsset,
+  whisperModelAssets,
   type WhisperBootstrapInput,
   type WhisperFileSystemScript
 } from "./WhisperBootstrap"
@@ -29,6 +32,7 @@ function inputWithDigests(
 ): WhisperBootstrapInput {
   return {
     binaryAsset: { fileName: "whisper-cli-linux-x64", sha256: binaryDigest, url: binaryUrl },
+    binaryPath: join(installDir, "whisper-cli-linux-x64"),
     fileSystem,
     installDir,
     modelAsset: { fileName: "ggml-tiny.bin", sha256: modelDigest, url: modelUrl }
@@ -68,19 +72,46 @@ function scriptWithBlanks(): WhisperFileSystemScript {
 }
 
 describe("resolveWhisperAssetNames", () => {
-  it("resolves the linux x64 binary and tiny model", async () => {
+  it("resolves the Linux x64 archive executable path", async () => {
     const names = await Effect.runPromise(resolveWhisperAssetNames("linux", "x64"))
-    expect(names.binaryFileName).toBe("whisper-cli-linux-x64")
-    expect(names.modelFileName).toBe("ggml-tiny.bin")
-  })
-  it("resolves the linux arm64 binary and tiny model", async () => {
-    const names = await Effect.runPromise(resolveWhisperAssetNames("linux", "arm64"))
-    expect(names.binaryFileName).toBe("whisper-cli-linux-aarch64")
+    expect(names.binaryFileName).toBe("whisper-cli")
+    expect(names.binaryDirectoryName).toBe("whisper-bin-ubuntu-x64")
   })
   it("rejects unsupported platforms on the error channel", async () => {
     const error = await Effect.runPromise(Effect.flip(resolveWhisperAssetNames("darwin", "arm64")))
     expect(error).toBeInstanceOf(BootstrapError)
     expect(error.operation).toBe("resolveWhisperAssetNames")
+  })
+})
+
+describe("whisper bootstrap manifest", () => {
+  it("uses tiny without configuration", () => {
+    expect(defaultWhisperModel).toBe("tiny")
+    expect(whisperModelAssets[defaultWhisperModel]).toEqual(whisperModelAssets.tiny)
+  })
+  it("pins the verified Linux CPU archive and model assets", () => {
+    expect(whisperCpuArchiveAsset).toEqual({
+      fileName: "whisper-bin-ubuntu-x64.tar.gz",
+      sha256: "53e7fd8b5764edad916b8848dd0af6abb1ff1d3b86c899e79c78652412536c32",
+      url: "https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-ubuntu-x64.tar.gz"
+    })
+    expect(whisperModelAssets).toEqual({
+      base: {
+        fileName: "ggml-base.bin",
+        sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin?download=true"
+      },
+      small: {
+        fileName: "ggml-small.bin",
+        sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin?download=true"
+      },
+      tiny: {
+        fileName: "ggml-tiny.bin",
+        sha256: "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin?download=true"
+      }
+    })
   })
 })
 
@@ -190,17 +221,5 @@ describe("WhisperBootstrap.ensureReady", () => {
     )
     expect(paths.binaryPath).toBe("/test-data/whisper-cli")
     expect(paths.modelPath).toBe("/test-data/ggml-tiny.bin")
-  })
-  it("fails the live layer without distribution config", async () => {
-    const error = await Effect.runPromise(
-      Effect.flip(
-        Effect.provide(
-          Effect.flatMap(WhisperBootstrap, (bootstrap) => bootstrap.ensureReady),
-          Layer.provide(WhisperBootstrap.Live, WhisperFileSystem.Test)
-        )
-      )
-    )
-    expect(error).toBeInstanceOf(BootstrapError)
-    expect(error.operation).toBe("readBootstrapConfig")
   })
 })

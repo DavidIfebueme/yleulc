@@ -21,6 +21,17 @@ jobs:
         run: npm run lint
       - name: test
         run: npm run test
+      - name: verify whisper bootstrap artifacts
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-all-errors --output whisper-bin-ubuntu-x64.tar.gz https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-ubuntu-x64.tar.gz
+          echo "53e7fd8b5764edad916b8848dd0af6abb1ff1d3b86c899e79c78652412536c32  whisper-bin-ubuntu-x64.tar.gz" | sha256sum --check --status
+          curl --fail --location --retry 3 --retry-all-errors --output ggml-tiny.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin?download=true"
+          echo "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21  ggml-tiny.bin" | sha256sum --check --status
+          curl --fail --location --retry 3 --retry-all-errors --output ggml-base.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin?download=true"
+          echo "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe  ggml-base.bin" | sha256sum --check --status
+          curl --fail --location --retry 3 --retry-all-errors --output ggml-small.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin?download=true"
+          echo "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b  ggml-small.bin" | sha256sum --check --status
       - name: build
         run: npm run build
   verify-overlay:
