@@ -1,0 +1,55 @@
+name: verify installers
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/verify-installers.yml
+      - build/icons/**
+      - electron-builder.yml
+      - electron.vite.config.*
+      - package.json
+      - package-lock.json
+      - src/**
+      - native/capture-rewriter/**
+      - tsconfig*.json
+jobs:
+  verify-installers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4.4.0
+      - name: setup node
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22.22.1
+          cache: npm
+      - name: install native dependencies
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libxext-dev
+      - name: install dependencies
+        run: npm ci
+      - name: typecheck
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: test
+        run: npm run test
+      - name: build native shim
+        run: make -C native/capture-rewriter && test -f native/capture-rewriter/capture_rewriter.so
+      - name: package linux artifacts
+        run: npm run dist
+      - name: verify installer icons
+        run: |
+          set -euo pipefail
+          app_image="$(realpath dist/*.AppImage)"
+          "$app_image" --appimage-extract
+          for icon in build/icons/*.png; do
+            size="${icon##*/}"
+            size="${size%x*}"
+            icon_path="usr/share/icons/hicolor/${size}x${size}/apps/yleulc.png"
+            expected="$(sha256sum "$icon" | cut -d ' ' -f 1)"
+            test "$expected" = "$(dpkg-deb --fsys-tarfile dist/*.deb | tar -xOf - "./$icon_path" | sha256sum | cut -d ' ' -f 1)"
+            test "$expected" = "$(sha256sum "squashfs-root/$icon_path" | cut -d ' ' -f 1)"
+          done
+          test "$(readlink squashfs-root/yleulc.png)" = "usr/share/icons/hicolor/512x512/apps/yleulc.png"
