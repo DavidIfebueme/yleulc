@@ -1,17 +1,13 @@
 import { useState } from "react"
 import type { ChangeEvent } from "react"
+import type { ProviderSettingsProvider } from "../../../shared/providerIpc"
 
-export interface ProviderKeyRow {
-  readonly displayName: string
-  readonly hasKeychainKey: boolean
-  readonly id: string
-  readonly registryMissing: boolean
-}
+export type ProviderKeyRow = ProviderSettingsProvider
 
 interface ProviderKeysTableProps {
-  readonly onRemove: (id: string) => void
-  readonly onSave: (id: string, key: string) => void
-  readonly onTest: (id: string) => void
+  readonly onRemove: (id: ProviderKeyRow["id"]) => void
+  readonly onSave: (id: ProviderKeyRow["id"], key: string) => void
+  readonly onTest: (id: ProviderKeyRow["id"]) => void
   readonly rows: ReadonlyArray<ProviderKeyRow>
   readonly testMessages: Record<string, string>
   readonly testingIds: ReadonlyArray<string>

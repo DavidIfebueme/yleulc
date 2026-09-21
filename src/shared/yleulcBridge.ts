@@ -6,6 +6,7 @@ import type { MeetingIdRequest } from "./meetingIpc"
 import type { CropRect, ScreenshotImage } from "./screenshot"
 import type { SettingsSnapshot } from "./settingsIpc"
 import type { ProtectionDashboard } from "./protectionIpc"
+import type { ProviderKeyTestResult, ProviderSettingsProvider } from "./providerIpc"
 
 export const appVersionChannel = "yleulc:app-version"
 
@@ -23,6 +24,10 @@ export interface YleulcBridge {
   readonly onListenEvent: (listener: (event: ListenEvent) => void) => () => void
   readonly getSettings: () => Promise<SettingsSnapshot>
   readonly saveSettings: (snapshot: SettingsSnapshot) => Promise<SettingsSnapshot>
+  readonly getProviderSettings: () => Promise<ReadonlyArray<ProviderSettingsProvider>>
+  readonly saveProviderKey: (providerId: ProviderSettingsProvider["id"], key: string) => Promise<ReadonlyArray<ProviderSettingsProvider>>
+  readonly removeProviderKey: (providerId: ProviderSettingsProvider["id"]) => Promise<ReadonlyArray<ProviderSettingsProvider>>
+  readonly testProviderKey: (providerId: ProviderSettingsProvider["id"]) => Promise<ProviderKeyTestResult>
   readonly listMeetings: () => Promise<Array<MeetingSummary>>
   readonly saveMeeting: (input: SaveMeetingInput) => Promise<Meeting>
   readonly getMeeting: (request: MeetingIdRequest) => Promise<Meeting>

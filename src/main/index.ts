@@ -20,6 +20,12 @@ import {
 } from "../shared/listenIpc"
 import { settingsGetChannel, settingsSaveChannel, type SettingsSnapshot } from "../shared/settingsIpc"
 import {
+  providerKeyRemoveChannel,
+  providerKeySaveChannel,
+  providerKeyTestChannel,
+  providerSettingsGetChannel
+} from "../shared/providerIpc"
+import {
   meetingDeleteChannel,
   meetingExportChannel,
   meetingGetChannel,
@@ -39,6 +45,7 @@ import { applySettingsToAskRequest, runAskRequest, runAssistRequest } from "./As
 import { CaptureService } from "./CaptureService"
 import { runListenLive } from "./ListenRuntime"
 import { getSettings, saveSettings } from "./SettingsIpc"
+import { getProviderSettings, removeProviderKey, saveProviderKey, testProviderKey } from "./ProviderKeysIpc"
 import { deleteMeeting, exportMeetingMarkdown, getMeeting, listMeetings, saveMeeting } from "./MeetingIpc"
 import { MeetingStore } from "./MeetingStore"
 import { SettingsStore } from "./SettingsStore"
@@ -47,7 +54,9 @@ import { getProtectionDashboard, protectAllApps, relaunchProtectedApp } from "./
 import { WrapperRegistry } from "./WrapperRegistry"
 import { createOverlayWindow } from "./overlay"
 import { makeGlobalAssistHotkey } from "./GlobalAssistHotkey"
-import { AskServiceLive } from "./ProviderServices"
+import { Keychain } from "./Keychain"
+import { ProviderKeys } from "./ProviderKeys"
+import { ProviderRegistry } from "./providers/ProviderRegistry"
 
 const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
 
@@ -63,6 +72,16 @@ const runningAssists = new Map<string, Fiber.Fiber<void, AssistServiceError>>()
 
 const runningListens = new Map<string, Fiber.Fiber<void, never>>()
 
+const providerRegistryLive = ProviderRegistry.Live.pipe(Layer.provideMerge(Keychain.Live))
+
+const providerServicesLive = Layer.merge(ProviderKeys.Live, AskService.Live).pipe(
+  Layer.provideMerge(providerRegistryLive)
+)
+
+const answerServicesLive = AssistService.Live.pipe(
+  Layer.provideMerge(Layer.merge(providerServicesLive, CaptureService.Live))
+)
+
 const program = Effect.gen(function* () {
   yield* Effect.sync(() => {
     app.on("window-all-closed", () => {
@@ -75,11 +94,30 @@ const program = Effect.gen(function* () {
   const assistService = yield* AssistService
   const captureService = yield* CaptureService
   const settingsStore = yield* SettingsStore
+  const providerKeys = yield* ProviderKeys
   const meetingStore = yield* MeetingStore
   const protectionService = yield* ProtectionService
   let registerAssistHotkey: (settings: SettingsSnapshot) => void = () => {}
   yield* Effect.sync(() => {
     ipcMain.handle(appVersionChannel, () => app.getVersion())
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(providerSettingsGetChannel, (): Promise<unknown> => Effect.runPromise(getProviderSettings(providerKeys)))
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(providerKeySaveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(saveProviderKey(raw, providerKeys))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(providerKeyRemoveChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(removeProviderKey(raw, providerKeys))
+    )
+  })
+  yield* Effect.sync(() => {
+    ipcMain.handle(providerKeyTestChannel, (_event: IpcMainInvokeEvent, raw: unknown): Promise<unknown> =>
+      Effect.runPromise(testProviderKey(raw, providerKeys))
+    )
   })
   yield* Effect.sync(() => {
     ipcMain.handle(settingsGetChannel, (): Promise<unknown> => Effect.runPromise(getSettings(settingsStore)))
@@ -298,9 +336,7 @@ const main = Effect.catch(
     program,
     Layer.mergeAll(
       AppConfig.Live,
-      AskServiceLive,
-      CaptureService.Live,
-      AssistService.Live.pipe(Layer.provide(Layer.merge(AskServiceLive, CaptureService.Live))),
+      answerServicesLive,
       SettingsStore.Live,
       MeetingStore.Live,
       WrapperRegistry.Live,

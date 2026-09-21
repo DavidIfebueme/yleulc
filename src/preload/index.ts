@@ -19,6 +19,12 @@ import {
   meetingsListChannel
 } from "../shared/meetingIpc"
 import { settingsGetChannel, settingsSaveChannel } from "../shared/settingsIpc"
+import {
+  providerKeyRemoveChannel,
+  providerKeySaveChannel,
+  providerKeyTestChannel,
+  providerSettingsGetChannel
+} from "../shared/providerIpc"
 import { appVersionChannel, type YleulcBridge } from "../shared/yleulcBridge"
 import {
   protectionGetChannel,
@@ -54,6 +60,10 @@ export function makeYleulcBridge(renderer: Pick<typeof ipcRenderer, "invoke" | "
       return () => renderer.removeListener(assistHotkeyChannel, subscription)
     },
     saveSettings: (snapshot) => renderer.invoke(settingsSaveChannel, snapshot),
+    getProviderSettings: () => renderer.invoke(providerSettingsGetChannel),
+    saveProviderKey: (providerId, key) => renderer.invoke(providerKeySaveChannel, { key, providerId }),
+    removeProviderKey: (providerId) => renderer.invoke(providerKeyRemoveChannel, { providerId }),
+    testProviderKey: (providerId) => renderer.invoke(providerKeyTestChannel, { providerId }),
     listMeetings: () => renderer.invoke(meetingsListChannel),
     saveMeeting: (input) => renderer.invoke(meetingSaveChannel, input),
     getMeeting: (request) => renderer.invoke(meetingGetChannel, request),

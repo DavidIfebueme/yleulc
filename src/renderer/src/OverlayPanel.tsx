@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import type { ListenTranscriptEntry } from "../../shared/listenIpc"
 import { toMeetingTranscript, type MeetingTranscript } from "../../shared/meeting"
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../shared/settingsIpc"
+import type { ProviderSettingsProvider } from "../../shared/providerIpc"
 import { makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
 import { AskPanel } from "./ask/AskPanel"
 import { MeetingPanel } from "./history/MeetingPanel"
@@ -14,6 +15,7 @@ export function OverlayPanel() {
     typeof window.yleulc === "undefined" ? defaultSettingsSnapshot : undefined
   )
   const [settingsSaveError, setSettingsSaveError] = useState("")
+  const [providers, setProviders] = useState<ReadonlyArray<ProviderSettingsProvider>>([])
   const [showSettings, setShowSettings] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
   const [showProtection, setShowProtection] = useState(false)
@@ -39,6 +41,13 @@ export function OverlayPanel() {
         setSettingsSaveError("settings could not be loaded")
       }
     )
+  }, [])
+
+  useEffect(() => {
+    if (typeof window.yleulc === "undefined") {
+      return
+    }
+    void window.yleulc.getProviderSettings().then(setProviders)
   }, [])
 
   const saveSettings = (update: SettingsUpdate): void => {
@@ -122,7 +131,15 @@ export function OverlayPanel() {
               </p>
             ) : (
               <div className="overlay-content-panel">
-                <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
+                <SettingsDashboard
+                  settings={settings}
+                  errorMessage={settingsSaveError}
+                  onSettingsChange={saveSettings}
+                  providers={providers}
+                  onProviderSave={(providerId, key) => window.yleulc.saveProviderKey(providerId, key).then(setProviders)}
+                  onProviderRemove={(providerId) => window.yleulc.removeProviderKey(providerId).then(setProviders)}
+                  onProviderTest={(providerId) => window.yleulc.testProviderKey(providerId).then((result) => result.models)}
+                />
               </div>
             )
           ) : settings === undefined ? (

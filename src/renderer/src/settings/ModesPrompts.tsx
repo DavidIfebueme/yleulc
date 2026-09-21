@@ -6,6 +6,7 @@ export type ModesPromptsValue = ModesPromptsSettings
 export interface ModesPromptsProviderOption {
   readonly displayName: string
   readonly id: ProviderId
+  readonly models: ReadonlyArray<string>
 }
 
 interface ModesPromptsProps {
@@ -59,6 +60,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
           }}
           className="overlay-select px-1.5 py-1 text-xs outline-none"
         >
+          {props.providerOptions.length === 0 ? <option value={props.value.defaultProviderId}>No providers available</option> : null}
           {props.providerOptions.map((option) => (
             <option key={option.id} value={option.id}>
               {option.displayName}
@@ -68,13 +70,22 @@ export function ModesPrompts(props: ModesPromptsProps) {
       </label>
       <label className="flex items-center justify-between gap-2 text-xs text-white/70">
         <span>Default model</span>
-        <input
+        <select
           value={props.value.defaultModel}
-          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          onChange={(event: ChangeEvent<HTMLSelectElement>) => {
             props.onChange((value) => ({ ...value, defaultModel: event.currentTarget.value }))
           }}
           className="overlay-input w-40 px-2 py-1 text-xs outline-none"
-        />
+        >
+          <option value={props.value.defaultModel}>{props.value.defaultModel}</option>
+          {(props.providerOptions.find((option) => option.id === props.value.defaultProviderId)?.models ?? [])
+            .filter((model) => model !== props.value.defaultModel)
+            .map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+        </select>
       </label>
       <label className="block space-y-1 text-xs text-white/70">
         <span>System prompt</span>

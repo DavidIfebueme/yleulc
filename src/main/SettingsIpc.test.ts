@@ -30,6 +30,30 @@ describe("settings IPC", () => {
     expect(result.saved).toEqual(snapshot)
     expect(result.read).toEqual(snapshot)
   })
+  it("persists the selected provider and model through the validated snapshot", async () => {
+    const snapshot = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        defaultModel: "claude-sonnet-4-20250514",
+        defaultProviderId: "anthropic" as const
+      }
+    }
+    const saved = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          yield* saveSettings(snapshot, store)
+          return yield* getSettings(store)
+        }),
+        makeSettingsStoreTestLayer(defaultSettingsSnapshot)
+      )
+    )
+    expect(saved.modesPrompts).toMatchObject({
+      defaultModel: "claude-sonnet-4-20250514",
+      defaultProviderId: "anthropic"
+    })
+  })
 
   it("rejects invalid renderer payloads without changing the store", async () => {
     const result = await Effect.runPromise(

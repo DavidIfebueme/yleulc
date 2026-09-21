@@ -1,15 +1,23 @@
 import type { KeybindAction, KeybindMap } from "../../../shared/keybinds"
+import type { ProviderSettingsProvider } from "../../../shared/providerIpc"
 import { KeybindTable } from "./KeybindTable"
 import { ModesPrompts } from "./ModesPrompts"
 import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPrompts"
+import { ProviderKeysTable } from "./ProviderKeysTable"
 
 interface SettingsPanelProps {
   readonly keybinds: KeybindMap
   readonly modesPrompts: ModesPromptsValue
   readonly onKeybindRebind: (action: KeybindAction, combo: string) => void
   readonly onModesPromptsChange: (update: (value: ModesPromptsValue) => ModesPromptsValue) => void
+  readonly onProviderRemove: (id: ProviderSettingsProvider["id"]) => void
+  readonly onProviderSave: (id: ProviderSettingsProvider["id"], key: string) => void
+  readonly onProviderTest: (id: ProviderSettingsProvider["id"]) => void
   readonly onReset: () => void
   readonly providerOptions: ReadonlyArray<ModesPromptsProviderOption>
+  readonly providerRows: ReadonlyArray<ProviderSettingsProvider>
+  readonly providerTestMessages: Record<string, string>
+  readonly testingProviderIds: ReadonlyArray<string>
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
@@ -30,7 +38,14 @@ export function SettingsPanel(props: SettingsPanelProps) {
       </div>
       <section className="overlay-section space-y-2">
         <h3 className="overlay-section-title">Provider keys</h3>
-        <p className="text-xs text-white/60">Manage provider keys through the system keychain.</p>
+        <ProviderKeysTable
+          rows={props.providerRows}
+          onRemove={props.onProviderRemove}
+          onSave={props.onProviderSave}
+          onTest={props.onProviderTest}
+          testMessages={props.providerTestMessages}
+          testingIds={props.testingProviderIds}
+        />
       </section>
       <section className="overlay-section space-y-2">
         <h3 className="overlay-section-title">Transcription</h3>
