@@ -1,4 +1,8 @@
-import type { TranscriptSegment } from "../ask/AskMockGateway"
+interface TranscriptSegment {
+  readonly speaker: string
+  readonly text: string
+  readonly time: string
+}
 
 interface TranscriptViewProps {
   readonly segments: ReadonlyArray<TranscriptSegment>

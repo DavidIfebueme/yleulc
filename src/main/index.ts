@@ -47,6 +47,7 @@ import { getProtectionDashboard, protectAllApps, relaunchProtectedApp } from "./
 import { WrapperRegistry } from "./WrapperRegistry"
 import { createOverlayWindow } from "./overlay"
 import { makeGlobalAssistHotkey } from "./GlobalAssistHotkey"
+import { AskServiceLive } from "./ProviderServices"
 
 const decodeAskRequestResult = Schema.decodeUnknownResult(AskRequestSchema)
 
@@ -297,9 +298,9 @@ const main = Effect.catch(
     program,
     Layer.mergeAll(
       AppConfig.Live,
-      AskService.Test,
+      AskServiceLive,
       CaptureService.Live,
-      AssistService.Live.pipe(Layer.provide(Layer.merge(AskService.Test, CaptureService.Live))),
+      AssistService.Live.pipe(Layer.provide(Layer.merge(AskServiceLive, CaptureService.Live))),
       SettingsStore.Live,
       MeetingStore.Live,
       WrapperRegistry.Live,

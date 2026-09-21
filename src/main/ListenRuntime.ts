@@ -1,7 +1,6 @@
 import { Effect, Layer } from "effect"
 import type { ConfigError } from "effect/Config"
 import type { ListenEvent } from "../shared/listenIpc"
-import { AskService } from "./AskService"
 import { AudioCapture } from "./AudioCapture"
 import { DeepgramSessionFactory, DeepgramSocketFactory } from "./DeepgramBackend"
 import { AssemblyaiSessionFactory, AssemblyaiSocketFactory } from "./AssemblyaiBackend"
@@ -12,6 +11,7 @@ import { systemAudioSupport } from "./SystemAudio"
 import { TranscriptionEngine, VadScorer } from "./TranscriptionEngine"
 import { WhisperBackend, WhisperRunner } from "./WhisperBackend"
 import { BootstrapError, WhisperBootstrap, WhisperFileSystem } from "./WhisperBootstrap"
+import { AskServiceLive } from "./ProviderServices"
 
 const WhisperBackendLive = WhisperBackend.Live.pipe(
   Layer.provide(
@@ -30,7 +30,7 @@ const TranscriptionEngineLive = TranscriptionEngine.Live.pipe(
 export const ListenLive = Layer.mergeAll(
   AudioCapture.Live,
   TranscriptionEngineLive,
-  ListenSession.Live.pipe(Layer.provide(AskService.Test))
+  ListenSession.Live.pipe(Layer.provide(AskServiceLive))
 )
 
 export function describeListenBootFailure(cause: ListenIpcError | BootstrapError | ConfigError): string {

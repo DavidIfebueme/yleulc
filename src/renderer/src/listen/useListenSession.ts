@@ -8,7 +8,6 @@ import {
   type ListenTranscriptEntry,
   type SystemAudioSupport
 } from "../../../shared/listenIpc"
-import { answerAskQuestion } from "../ask/AskMockGateway"
 import {
   cancelAskRequest,
   isAskBridgeAvailable,
@@ -21,7 +20,6 @@ import {
   stopListenSession,
   subscribeListenEvents
 } from "./ListenIpcGateway"
-import { streamMockListenEntries } from "./ListenMockEngine"
 
 const listenSessionId = "listen-session"
 
@@ -107,8 +105,8 @@ function startAnswer(entry: ListenTranscriptEntry, setAnswers: SetListenAnswers)
   const question = toAutoAnswerQuestion(entry)
   const requestId = `listen-${entry.id}`
   if (!isAskBridgeAvailable()) {
-    const mocked = answerAskQuestion(question)
-    appendAnswer(setAnswers, entry, question, mocked.bullets.join("\n"), "done")
+    appendAnswer(setAnswers, entry, question, "", "error")
+    markAnswerError(setAnswers, requestId, "ask bridge unavailable")
     return
   }
   appendAnswer(setAnswers, entry, question, "", "streaming")
@@ -137,6 +135,7 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
 
   useEffect(() => {
     if (!isListenBridgeAvailable()) {
+      setEngineError("listen bridge unavailable")
       return
     }
     const unsubscribe = subscribeListenEvents((event) => {
@@ -167,18 +166,6 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
   }, [])
 
   useEffect(() => {
-    if (isAskBridgeAvailable()) {
-      return
-    }
-    return streamMockListenEntries((entry) => {
-      setEntries((previous) => appendListenEntry(previous, entry))
-      if (shouldAutoAnswer(entry)) {
-        startAnswer(entry, setAnswers)
-      }
-    })
-  }, [])
-
-  useEffect(() => {
     const notify = options?.onEntriesChange
     if (notify !== undefined) {
       notify(entries)
@@ -198,13 +185,7 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
       )
     )
     if (!isAskBridgeAvailable()) {
-      const mocked = answerAskQuestion(target.question)
-      const text = mocked.bullets.join("\n")
-      setAnswers((previous) =>
-        previous.map((answer) =>
-          answer.requestId === requestId ? { ...answer, answer: text, status: "done" as const } : answer
-        )
-      )
+      markAnswerError(setAnswers, requestId, "ask bridge unavailable")
       return
     }
     void sendAskRequest({ question: target.question, requestId }).then(

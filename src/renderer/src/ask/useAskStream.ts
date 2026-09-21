@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react"
 import type { AskEvent, AskTokenUsage } from "../../../shared/askIpc"
 import type { ListenTranscriptEntry } from "../../../shared/listenIpc"
 import type { ScreenshotImage } from "../../../shared/screenshot"
-import { answerAskQuestion } from "./AskMockGateway"
 import {
   cancelAskRequest,
   isAskBridgeAvailable,
@@ -101,11 +100,9 @@ export function useAskStream(): UseAskStreamResult {
     setUsage(undefined)
     setStatus("streaming")
     if (!isAskBridgeAvailable()) {
-      const mocked = answerAskQuestion(trimmed)
-      answerRef.current = mocked.bullets.join("\n")
-      setAnswer(answerRef.current)
-      setStatus("done")
       activeRequestId.current = undefined
+      setErrorMessage("ask bridge unavailable")
+      setStatus("error")
       return
     }
     void sendAskRequest({ activePromptModeId, images: [...lastImages.current], question: trimmed, requestId, systemPrompt }).then(

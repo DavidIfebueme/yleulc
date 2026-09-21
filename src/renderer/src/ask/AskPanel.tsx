@@ -6,18 +6,11 @@ import { emptyAskFallback, toAskBullets } from "../../../shared/askIpc"
 import { promptForSmartMode } from "../../../shared/askPrompts"
 import type { PromptMode } from "../../../shared/settingsIpc"
 import type { ScreenshotImage } from "../../../shared/screenshot"
-import type { AskAnswer } from "./AskMockGateway"
-import {
-  answerAskQuestion,
-  askPreviousQuestions,
-  extendAskAnswer
-} from "./AskMockGateway"
 import { AskAnswerBullets } from "./AskAnswerBullets"
 import {
   CluelyPromptModeSelect,
 } from "./CluelyPromptModeSelect"
 import { AskErrorCard } from "./AskErrorCard"
-import { AskHistoryChips } from "./AskHistoryChips"
 import { AskInput } from "./AskInput"
 import { isAskBridgeAvailable, subscribeAssistHotkey } from "./AskIpcGateway"
 import { AskQuestionBubble } from "./AskQuestionBubble"
@@ -57,9 +50,6 @@ export function AskPanel(props: AskPanelProps) {
   const [listenSeconds, setListenSeconds] = useState(0)
   const [transcriptOpen, setTranscriptOpen] = useState(() => initialOverlayState(props.initialMode).transcriptOpen)
   const [draft, setDraft] = useState("")
-  const [exchanges, setExchanges] = useState<ReadonlyArray<AskAnswer>>(() => [
-    answerAskQuestion("What should I say next?")
-  ])
   const [copied, setCopied] = useState(false)
   const [hidden, setHidden] = useState(false)
   const [attachments, setAttachments] = useState<ReadonlyArray<ScreenshotAttachment>>([])
@@ -124,7 +114,7 @@ export function AskPanel(props: AskPanelProps) {
       setCopied(false)
       return
     }
-    setExchanges((previous) => [...previous, answerAskQuestion(trimmed)])
+    askWithMode(trimmed)
     setDraft("")
     setCopied(false)
   }
@@ -150,13 +140,7 @@ export function AskPanel(props: AskPanelProps) {
   })
 
   const answerChip = (chip: string): void => {
-    if (isAskBridgeAvailable()) {
-      askWithMode(chip)
-      setDraft("")
-      setCopied(false)
-      return
-    }
-    setExchanges((previous) => [...previous, answerAskQuestion(chip)])
+    askWithMode(chip)
     setDraft("")
     setCopied(false)
   }
@@ -191,16 +175,6 @@ export function AskPanel(props: AskPanelProps) {
     setCaptureError("")
   }
 
-  const tellMore = (): void => {
-    setExchanges((previous) => {
-      const last = previous[previous.length - 1]
-      if (last === undefined) {
-        return previous
-      }
-      return [...previous.slice(0, -1), extendAskAnswer(last)]
-    })
-  }
-
   const copyAnswer = (): void => {
     const streamed = stream.answer.trim()
     if (isAskBridgeAvailable() && streamed !== "") {
@@ -214,11 +188,10 @@ export function AskPanel(props: AskPanelProps) {
       )
       return
     }
-    const last = exchanges[exchanges.length - 1]
-    if (last === undefined) {
+    if (streamed === "") {
       return
     }
-    void navigator.clipboard.writeText(last.bullets.join("\n")).then(
+    void navigator.clipboard.writeText(streamed).then(
       () => {
         setCopied(true)
       },
@@ -285,14 +258,6 @@ export function AskPanel(props: AskPanelProps) {
         />
       ) : (
         <>
-          <div className="mt-2 space-y-3">
-            {exchanges.map((exchange, index) => (
-              <div key={`${index}-${exchange.question}`} className="space-y-1.5">
-                <AskQuestionBubble question={exchange.question} />
-                <AskAnswerBullets bullets={exchange.bullets} />
-              </div>
-            ))}
-          </div>
           {stream.question === "" ? null : (
             <div className="mt-2 space-y-1.5">
               <AskQuestionBubble question={stream.question} />
@@ -332,7 +297,7 @@ export function AskPanel(props: AskPanelProps) {
             </div>
           )}
           <div className="mt-2">
-            <AssistActions onTellMore={tellMore} onCopy={copyAnswer} copied={copied} />
+            <AssistActions onTellMore={stream.retry} onCopy={copyAnswer} copied={copied} />
           </div>
           <div className="mt-2">
             <AssistQuickChips
@@ -391,9 +356,6 @@ export function AskPanel(props: AskPanelProps) {
           </div>
           <div className="mt-2">
             <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
-          </div>
-          <div className="mt-2">
-            <AskHistoryChips questions={askPreviousQuestions} onSelect={answerChip} />
           </div>
         </>
       )}
