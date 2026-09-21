@@ -5,6 +5,7 @@ import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../shared/set
 import { makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
 import { AskPanel } from "./ask/AskPanel"
 import { MeetingPanel } from "./history/MeetingPanel"
+import { OverlayLogoMark } from "./overlay/OverlayLogoMark"
 import { SettingsDashboard } from "./settings/SettingsDashboard"
 import { ProtectionDashboard } from "./protection/ProtectionDashboard"
 
@@ -57,62 +58,75 @@ export function OverlayPanel() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-start justify-center bg-transparent p-4">
-      <div className="space-y-2">
-        <div className="flex justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setShowActivity((visible) => !visible)
-              setShowSettings(false)
-              setShowProtection(false)
-            }}
-            className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
-          >
-            {showActivity ? "Back" : "Activity"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowSettings((visible) => !visible)
-              setShowActivity(false)
-              setShowProtection(false)
-            }}
-            className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
-          >
-            {showSettings ? "Back" : "Settings"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowProtection((visible) => !visible)
-              setShowActivity(false)
-              setShowSettings(false)
-            }}
-            className="rounded-lg border border-white/15 bg-slate-950/80 px-2 py-1 text-xs text-white/80 shadow-2xl backdrop-blur-xl hover:bg-white/10"
-          >
-            {showProtection ? "Back" : "Protection"}
-          </button>
+    <div className="overlay-viewport" data-overlay-viewport="bounded">
+      <div className="overlay-surface">
+        <div className="overlay-nav overlay-drag">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/80">
+            <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
+              {[0, 1, 2, 3, 4, 5].map((dot) => (
+                <span key={dot} className="h-1 w-1 rounded-full bg-white/35" />
+              ))}
+            </span>
+            <OverlayLogoMark />
+            <span>{showActivity ? "Activity" : showSettings ? "Settings" : showProtection ? "Protection" : "Live insights"}</span>
+          </div>
+          <div className="overlay-no-drag flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setShowActivity((visible) => !visible)
+                setShowSettings(false)
+                setShowProtection(false)
+              }}
+              className="overlay-nav-button"
+            >
+              {showActivity ? "Back" : "Activity"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSettings((visible) => !visible)
+                setShowActivity(false)
+                setShowProtection(false)
+              }}
+              className="overlay-nav-button"
+            >
+              {showSettings ? "Back" : "Settings"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowProtection((visible) => !visible)
+                setShowActivity(false)
+                setShowSettings(false)
+              }}
+              className="overlay-nav-button"
+            >
+              {showProtection ? "Back" : "Protection"}
+            </button>
+          </div>
         </div>
-        {showProtection ? (
-          <div className="w-[400px]">
-            <ProtectionDashboard />
-          </div>
-        ) : showActivity ? (
-          <div className="w-[400px]">
-            <MeetingPanel transcript={meetingTranscript} />
-          </div>
-        ) : showSettings ? (
-          settings === undefined ? (
-            <p className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
-              {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
-            </p>
-          ) : (
-            <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
-          )
-        ) : (
-          settings === undefined ? (
-            <p className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-xs text-white/60 shadow-2xl backdrop-blur-xl">
+        <div className="min-h-0 flex-1">
+          {showProtection ? (
+            <div className="overlay-content-panel">
+              <ProtectionDashboard />
+            </div>
+          ) : showActivity ? (
+            <div className="overlay-content-panel">
+              <MeetingPanel transcript={meetingTranscript} />
+            </div>
+          ) : showSettings ? (
+            settings === undefined ? (
+              <p className="overlay-empty-state">
+                {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
+              </p>
+            ) : (
+              <div className="overlay-content-panel">
+                <SettingsDashboard settings={settings} errorMessage={settingsSaveError} onSettingsChange={saveSettings} />
+              </div>
+            )
+          ) : settings === undefined ? (
+            <p className="overlay-empty-state">
               {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
             </p>
           ) : (
@@ -130,8 +144,8 @@ export function OverlayPanel() {
                 }))
               }}
             />
-          )
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

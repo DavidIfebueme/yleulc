@@ -217,7 +217,7 @@ export function AskPanel(props: AskPanelProps) {
 
   return (
     <>
-    <div className="w-[400px] rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-white shadow-2xl backdrop-blur-xl">
+    <div className="flex h-full min-h-0 flex-col text-white">
       <ListenStatusPill
         listening={listening}
         audioOn={audioOn}
@@ -249,6 +249,7 @@ export function AskPanel(props: AskPanelProps) {
           }}
         />
       </div>
+      <div className="overlay-ask-content" data-scroll-region="ask">
       {transcriptOpen ? (
         <ListenPanel
           onTranscriptChange={(entries) => {
@@ -359,6 +360,7 @@ export function AskPanel(props: AskPanelProps) {
           </div>
         </>
       )}
+      </div>
     </div>
     {areaSelecting ? (
       <AreaSelect

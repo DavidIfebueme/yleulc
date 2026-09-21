@@ -14,7 +14,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   return (
-    <div className="w-[400px] space-y-4 rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-white shadow-2xl backdrop-blur-xl">
+    <div className="space-y-4 text-white">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-white/90">Settings</h2>
         <button

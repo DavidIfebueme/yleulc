@@ -52,7 +52,7 @@ export function ProtectionDashboard() {
   }
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-white shadow-2xl backdrop-blur-xl">
+    <section className="text-white">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium">Protection</h2>
