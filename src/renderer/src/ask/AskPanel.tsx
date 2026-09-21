@@ -217,7 +217,7 @@ export function AskPanel(props: AskPanelProps) {
 
   return (
     <>
-    <div className="flex h-full min-h-0 flex-col text-white">
+    <div className="ask-panel-shell text-white" data-overlay-panel="ask">
       <ListenStatusPill
         listening={listening}
         audioOn={audioOn}
@@ -232,7 +232,7 @@ export function AskPanel(props: AskPanelProps) {
           setHidden(true)
         }}
       />
-      <div className="mt-3 flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.025] px-2 py-1">
+      <div className="ask-context-bar">
         <CluelyPromptModeSelect
           modeId={activePromptModeId}
           modes={props.promptModes}
@@ -259,8 +259,12 @@ export function AskPanel(props: AskPanelProps) {
         />
       ) : (
         <>
-          {stream.question === "" ? null : (
-            <div className="mt-2 space-y-1.5">
+          {stream.question === "" ? (
+            <div className="ask-answer-empty">
+              <p>Ask for the next answer, a recap, or help with what is on screen.</p>
+            </div>
+          ) : (
+            <div className="ask-answer-card">
               <AskQuestionBubble question={stream.question} />
               {stream.status === "streaming" && stream.answer.trim() === "" ? (
                 <p className="text-xs text-white/50">Streaming answer…</p>
@@ -297,10 +301,16 @@ export function AskPanel(props: AskPanelProps) {
               ) : null}
             </div>
           )}
-          <div className="mt-2">
+          <div className="ask-answer-actions">
             <AssistActions onTellMore={stream.retry} onCopy={copyAnswer} copied={copied} />
           </div>
-          <div className="mt-2">
+        </>
+      )}
+      </div>
+      {transcriptOpen ? null : (
+        <div className="ask-composer">
+          <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
+          <div className="ask-action-strip">
             <AssistQuickChips
               chips={quickActionIntents.map((intent) => intent.label)}
               onSelect={(label) => {
@@ -310,35 +320,26 @@ export function AskPanel(props: AskPanelProps) {
                 }
               }}
             />
+            <button type="button" onClick={captureScreen} className="overlay-button shrink-0">
+              Capture screen
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!isScreenshotBridgeAvailable()) {
+                  setCaptureError("screenshots need the desktop app")
+                  return
+                }
+                setCaptureError("")
+                setAreaSelecting(true)
+              }}
+              className="overlay-button shrink-0"
+            >
+              Capture area
+            </button>
           </div>
-          <div className="mt-2">
-            <ScreenshotTray attachments={attachments} onRemove={removeAttachment} />
-            <div className="mt-1 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={captureScreen}
-                className="overlay-button"
-              >
-                Capture screen
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isScreenshotBridgeAvailable()) {
-                    setCaptureError("screenshots need the desktop app")
-                    return
-                  }
-                  setCaptureError("")
-                  setAreaSelecting(true)
-                }}
-                className="overlay-button"
-              >
-                Capture area
-              </button>
-              {captureError === "" ? null : <p className="text-[11px] text-red-300/80">{captureError}</p>}
-            </div>
-          </div>
-          <div className="mt-2">
+          {captureError === "" ? null : <p className="mt-1 text-[11px] text-red-300/80">{captureError}</p>}
+          <div className="ask-input-row">
             <button
               type="button"
               aria-pressed={smartMode}
@@ -355,12 +356,9 @@ export function AskPanel(props: AskPanelProps) {
             </button>
             <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
           </div>
-          <div className="mt-2">
-            <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
-          </div>
-        </>
+          <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
+        </div>
       )}
-      </div>
     </div>
     {areaSelecting ? (
       <AreaSelect

@@ -10,11 +10,25 @@ import { SettingsPanel } from "./settings/SettingsPanel"
 Object.defineProperty(globalThis, "window", { value: {} })
 
 describe("OverlayPanel", () => {
-  it("keeps the overlay viewport bounded and assigns scrolling to content panels", () => {
+  it("keeps the release viewport bounded and assigns scrolling to content panels", () => {
     const markup = renderToStaticMarkup(<OverlayPanel />)
-    expect(markup).toContain('class="overlay-viewport" data-overlay-viewport="bounded"')
+    expect(markup).toContain('class="overlay-viewport" data-overlay-viewport="bounded" data-release-size="420x320"')
     expect(markup).toContain('class="overlay-surface"')
+    expect(markup).toContain('class="overlay-app-header overlay-drag"')
+    expect(markup).toContain('class="live-status-bar" aria-label="Live session status"')
+    expect(markup).toContain('class="overlay-main-region" data-overlay-main="bounded"')
     expect(markup).toContain('class="overlay-ask-content" data-scroll-region="ask"')
+  })
+
+  it("keeps the 420 by 320 visual hierarchy in the renderer DOM", () => {
+    const markup = renderToStaticMarkup(<OverlayPanel />)
+
+    expect(markup).toContain('data-release-size="420x320"')
+    expect(markup).toContain('class="ask-panel-shell text-white" data-overlay-panel="ask"')
+    expect(markup).toContain('class="live-status-bar" aria-label="Live session status"')
+    expect(markup).toContain('class="ask-context-bar"')
+    expect(markup).toContain('class="overlay-ask-content" data-scroll-region="ask"')
+    expect(markup).toContain('class="ask-composer"')
   })
 
   it("renders every overlay panel with the shared control system", () => {

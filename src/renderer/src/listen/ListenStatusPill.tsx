@@ -1,4 +1,3 @@
-import { OverlayLogoMark } from "../overlay/OverlayLogoMark"
 import { formatListenDuration } from "./ListenTimer"
 
 interface ListenStatusPillProps {
@@ -10,46 +9,41 @@ interface ListenStatusPillProps {
   readonly onHideOverlay: () => void
 }
 
-const dragDots: ReadonlyArray<number> = [0, 1, 2, 3, 4, 5]
-
 export function ListenStatusPill(props: ListenStatusPillProps) {
   const stateText = props.listening ? "Listening" : "Paused"
   const stateDot = props.listening ? "bg-emerald-400" : "bg-amber-400"
   const audioText = props.audioOn ? "Mute" : "Unmute"
   return (
-    <div className="overlay-drag flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-1.5">
-      <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
-        {dragDots.map((dot) => (
-          <span key={dot} className="h-1 w-1 rounded-full bg-white/40" />
-        ))}
-      </span>
-      <OverlayLogoMark />
-      <span className="flex items-center gap-1.5 text-xs font-medium text-white/90">
+    <section className="live-status-bar" aria-label="Live session status">
+      <span className="live-status-label">
         <span className={`h-1.5 w-1.5 rounded-full ${stateDot}`} aria-hidden="true" />
         {stateText}
       </span>
+      <span className="live-status-time">{formatListenDuration(props.listenSeconds)}</span>
+      <div className="ml-auto flex items-center gap-1.5">
       <button
         type="button"
         onClick={props.onToggleAudio}
-        className="overlay-no-drag overlay-button rounded-full px-2 py-0.5"
+        className="overlay-button rounded-full px-2 py-0.5"
       >
         {audioText}
       </button>
       <button
         type="button"
         onClick={props.onEndListen}
-        className="overlay-no-drag overlay-primary-button rounded-full px-2 py-0.5"
+        className="overlay-primary-button rounded-full px-2 py-0.5"
       >
-        {`End ${formatListenDuration(props.listenSeconds)}`}
+        End
       </button>
       <button
         type="button"
         onClick={props.onHideOverlay}
         aria-label="Hide overlay"
-        className="overlay-no-drag rounded-full px-1.5 py-0.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+        className="rounded-full px-1.5 py-0.5 text-xs text-white/60 hover:bg-white/10 hover:text-white"
       >
         {"\u00D7"}
       </button>
-    </div>
+      </div>
+    </section>
   )
 }

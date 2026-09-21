@@ -20,7 +20,7 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  padding: 12px;
+  padding: 8px;
 }
 
 .overlay-surface {
@@ -29,41 +29,58 @@ body {
   min-height: 0;
   flex-direction: column;
   border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 18px;
-  background: rgb(9 15 28 / 92%);
-  box-shadow: 0 18px 52px rgb(0 0 0 / 42%);
-  backdrop-filter: blur(24px);
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgb(20 27 45 / 96%), rgb(8 12 24 / 96%));
+  box-shadow: 0 18px 52px rgb(0 0 0 / 46%);
+  backdrop-filter: blur(28px);
   overflow: hidden;
 }
 
-.overlay-nav {
+.overlay-app-header {
   display: flex;
   flex: none;
   align-items: center;
   justify-content: space-between;
-  min-height: 42px;
-  padding: 8px 10px;
+  min-height: 40px;
+  padding: 7px 10px;
   border-bottom: 1px solid rgb(255 255 255 / 8%);
 }
 
 .overlay-nav-button {
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 5%);
-  padding: 4px 7px;
-  color: rgb(255 255 255 / 80%);
-  font-size: 11px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 6px;
+  color: rgb(255 255 255 / 52%);
+  font-size: 10px;
+  text-transform: capitalize;
 }
 
-.overlay-nav-button:hover {
-  background: rgb(255 255 255 / 10%);
+.overlay-nav-button:hover,
+.overlay-nav-button[aria-current="page"] {
+  background: rgb(255 255 255 / 9%);
+  color: white;
+}
+
+.overlay-app-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.overlay-main-region {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
 }
 
 .overlay-content-panel {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px;
+  padding: 10px;
 }
 
 .overlay-empty-state {
@@ -76,17 +93,18 @@ body {
 }
 
 .overlay-ask-content {
+  display: flex;
   min-height: 0;
   flex: 1 1 0%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 4px;
+  padding: 10px;
 }
 
 .overlay-section {
   border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 12px;
-  background: rgb(255 255 255 / 3%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 4%);
   padding: 10px;
 }
 
@@ -100,8 +118,8 @@ body {
 
 .overlay-card {
   border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 12px;
-  background: rgb(2 6 23 / 46%);
+  border-radius: 10px;
+  background: rgb(3 7 18 / 52%);
   padding: 10px;
 }
 
@@ -129,9 +147,9 @@ body {
 }
 
 .overlay-primary-button {
-  border: 1px solid rgb(56 189 248 / 55%);
+  border: 1px solid rgb(103 232 249 / 55%);
   border-radius: 8px;
-  background: rgb(14 116 144 / 88%);
+  background: linear-gradient(135deg, rgb(8 145 178), rgb(79 70 229));
   padding: 5px 9px;
   color: white;
   font-size: 11px;
@@ -140,7 +158,7 @@ body {
 }
 
 .overlay-primary-button:hover {
-  background: rgb(3 105 161 / 96%);
+  background: linear-gradient(135deg, rgb(6 182 212), rgb(99 102 241));
 }
 
 .overlay-input,
@@ -186,4 +204,95 @@ body {
 
 .overlay-no-drag {
   -webkit-app-region: no-drag;
+}
+
+.ask-panel-shell {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+}
+
+.live-status-bar {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(255 255 255 / 3%);
+  padding: 6px 10px;
+}
+
+.live-status-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(255 255 255 / 90%);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.live-status-time {
+  color: rgb(255 255 255 / 42%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.ask-context-bar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
+  padding: 5px 10px;
+}
+
+.ask-answer-card {
+  width: 100%;
+}
+
+.ask-answer-empty {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  color: rgb(255 255 255 / 42%);
+  font-size: 12px;
+  text-align: center;
+}
+
+.ask-answer-actions {
+  margin-top: 8px;
+}
+
+.ask-composer {
+  flex: none;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(3 7 18 / 34%);
+  padding: 7px 10px 9px;
+}
+
+.ask-action-strip {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.ask-action-strip .overlay-action-strip {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ask-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ask-input-row > div {
+  min-width: 0;
+  flex: 1 1 auto;
 }

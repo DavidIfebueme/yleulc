@@ -16,9 +16,7 @@ export function OverlayPanel() {
   )
   const [settingsSaveError, setSettingsSaveError] = useState("")
   const [providers, setProviders] = useState<ReadonlyArray<ProviderSettingsProvider>>([])
-  const [showSettings, setShowSettings] = useState(false)
-  const [showActivity, setShowActivity] = useState(false)
-  const [showProtection, setShowProtection] = useState(false)
+  const [activePanel, setActivePanel] = useState<"ask" | "activity" | "settings" | "protection">("ask")
   const [meetingTranscript, setMeetingTranscript] = useState<MeetingTranscript>([])
   const saveQueue = useRef(
     makeSettingsSaveQueue(defaultSettingsSnapshot, (snapshot) =>
@@ -67,64 +65,44 @@ export function OverlayPanel() {
   }
 
   return (
-    <div className="overlay-viewport" data-overlay-viewport="bounded">
+    <div className="overlay-viewport" data-overlay-viewport="bounded" data-release-size="420x320">
       <div className="overlay-surface">
-        <div className="overlay-nav overlay-drag">
-          <div className="flex items-center gap-2 text-xs font-medium text-white/80">
+        <header className="overlay-app-header overlay-drag">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-white/80">
             <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
               {[0, 1, 2, 3, 4, 5].map((dot) => (
                 <span key={dot} className="h-1 w-1 rounded-full bg-white/35" />
               ))}
             </span>
             <OverlayLogoMark />
-            <span>{showActivity ? "Activity" : showSettings ? "Settings" : showProtection ? "Protection" : "Live insights"}</span>
+            <span className="truncate">yleulc</span>
           </div>
-          <div className="overlay-no-drag flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                setShowActivity((visible) => !visible)
-                setShowSettings(false)
-                setShowProtection(false)
-              }}
-              className="overlay-nav-button"
-            >
-              {showActivity ? "Back" : "Activity"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowSettings((visible) => !visible)
-                setShowActivity(false)
-                setShowProtection(false)
-              }}
-              className="overlay-nav-button"
-            >
-              {showSettings ? "Back" : "Settings"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowProtection((visible) => !visible)
-                setShowActivity(false)
-                setShowSettings(false)
-              }}
-              className="overlay-nav-button"
-            >
-              {showProtection ? "Back" : "Protection"}
-            </button>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1">
-          {showProtection ? (
+          <nav className="overlay-no-drag overlay-app-nav" aria-label="Overlay navigation">
+            {(["ask", "activity", "settings", "protection"] as const).map((panel) => (
+              <button
+                key={panel}
+                type="button"
+                onClick={() => {
+                  setActivePanel(panel)
+                }}
+                aria-current={activePanel === panel ? "page" : undefined}
+                className="overlay-nav-button"
+              >
+                {panel}
+              </button>
+            ))}
+          </nav>
+        </header>
+        <main className="overlay-main-region" data-overlay-main="bounded">
+          {activePanel === "protection" ? (
             <div className="overlay-content-panel">
               <ProtectionDashboard />
             </div>
-          ) : showActivity ? (
+          ) : activePanel === "activity" ? (
             <div className="overlay-content-panel">
               <MeetingPanel transcript={meetingTranscript} />
             </div>
-          ) : showSettings ? (
+          ) : activePanel === "settings" ? (
             settings === undefined ? (
               <p className="overlay-empty-state">
                 {settingsSaveError === "" ? "Loading settings..." : settingsSaveError}
@@ -162,7 +140,7 @@ export function OverlayPanel() {
               }}
             />
           )}
-        </div>
+        </main>
       </div>
     </div>
   )
