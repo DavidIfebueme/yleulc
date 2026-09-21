@@ -24,8 +24,14 @@ describe("OverlayPanel", () => {
         modesPrompts={defaultSettingsSnapshot.modesPrompts}
         onKeybindRebind={() => undefined}
         onModesPromptsChange={() => undefined}
+        onProviderRemove={() => undefined}
+        onProviderSave={() => undefined}
+        onProviderTest={() => undefined}
         onReset={() => undefined}
         providerOptions={[]}
+        providerRows={[]}
+        providerTestMessages={{}}
+        testingProviderIds={[]}
       />
     )
     const activity = renderToStaticMarkup(<MeetingPanel transcript={[]} />)
