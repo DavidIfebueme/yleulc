@@ -16,7 +16,7 @@ export function ListenTranscriptBar(props: ListenTranscriptBarProps) {
   }, [props.entries])
   if (props.entries.length === 0) {
     return (
-      <div className="mt-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2.5">
+      <div className="overlay-card mt-2 px-3 py-2.5">
         <p className="text-xs text-white/50">Waiting for speech…</p>
       </div>
     )
@@ -24,7 +24,7 @@ export function ListenTranscriptBar(props: ListenTranscriptBarProps) {
   return (
     <ol
       ref={scrollRef}
-      className="mt-2 max-h-44 space-y-1.5 overflow-y-auto rounded-xl border border-white/10 bg-black/40 p-2.5"
+      className="overlay-card mt-2 max-h-44 space-y-1.5 overflow-y-auto p-2.5"
     >
       {props.entries.map((entry) => (
         <li

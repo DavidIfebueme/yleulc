@@ -10,14 +10,14 @@ export function AssistActions(props: AssistActionsProps) {
       <button
         type="button"
         onClick={props.onTellMore}
-        className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+        className="overlay-button"
       >
         Tell Me More
       </button>
       <button
         type="button"
         onClick={props.onCopy}
-        className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+        className="overlay-button"
       >
         {props.copied ? "Copied" : "Copy"}
       </button>

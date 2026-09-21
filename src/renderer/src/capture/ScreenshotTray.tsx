@@ -10,13 +10,13 @@ export function ScreenshotTray(props: ScreenshotTrayProps) {
     return null
   }
   return (
-    <div className="flex items-center gap-2 overflow-x-auto py-1" aria-label="Attached screenshots">
+    <div className="overlay-action-strip py-1" aria-label="Attached screenshots">
       {props.attachments.map((attachment) => (
         <div key={attachment.id} className="relative shrink-0">
           <img
             src={attachment.dataUrl}
             alt="Attached screenshot"
-            className="h-12 w-20 rounded-lg border border-white/15 object-cover"
+            className="h-12 w-20 rounded-lg border border-sky-200/20 object-cover"
           />
           <button
             type="button"

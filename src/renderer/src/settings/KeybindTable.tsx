@@ -21,7 +21,7 @@ export function KeybindTable(props: KeybindTableProps) {
       {keybindActions.map((action) => {
         const conflicted = isKeybindConflicted(props.keybinds, action)
         return (
-          <div key={action} className="flex items-center justify-between gap-2">
+          <div key={action} className="flex items-center justify-between gap-2 rounded-lg px-1 py-0.5 hover:bg-white/[0.035]">
             <span className="flex items-center gap-1.5 text-xs text-white/70">
               <span>{actionLabels[action]}</span>
               {conflicted ? (
@@ -33,7 +33,7 @@ export function KeybindTable(props: KeybindTableProps) {
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
                 props.onRebind(action, event.currentTarget.value)
               }}
-              className="w-36 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 outline-none"
+              className="overlay-input w-36 px-2 py-1 text-xs outline-none"
             />
           </div>
         )

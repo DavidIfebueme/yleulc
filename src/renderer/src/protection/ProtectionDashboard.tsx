@@ -53,23 +53,23 @@ export function ProtectionDashboard() {
 
   return (
     <section className="text-white">
-      <div className="mb-3 flex items-center justify-between gap-3">
+       <div className="overlay-section mb-3 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium">Protection</h2>
           <p className="text-xs text-white/55">Wrapped apps exclude the overlay from X11 captures.</p>
         </div>
-        <button type="button" onClick={protectAll} className="rounded-lg bg-white px-2 py-1 text-xs font-medium text-slate-950 hover:bg-white/85">
+         <button type="button" onClick={protectAll} className="overlay-primary-button">
           Protect all
         </button>
       </div>
       <div className="space-y-2">
         {dashboard.apps.map((app) => (
-          <div key={app.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 px-2 py-2">
+          <div key={app.id} className="overlay-card flex items-center justify-between gap-3 px-2 py-2">
             <div>
               <p className="text-xs font-medium">{app.label}</p>
               <p className="text-xs text-white/55">{app.state}</p>
             </div>
-            <button type="button" onClick={() => relaunch(app)} className="rounded-md border border-white/20 px-2 py-1 text-xs hover:bg-white/10">
+            <button type="button" onClick={() => relaunch(app)} className="overlay-button">
               Relaunch
             </button>
           </div>

@@ -14,35 +14,38 @@ interface SettingsPanelProps {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   return (
-    <div className="space-y-4 text-white">
+    <div className="space-y-3 text-white">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white/90">Settings</h2>
+        <div>
+          <p className="overlay-section-title">Workspace controls</p>
+          <h2 className="mt-0.5 text-sm font-semibold text-white/90">Settings</h2>
+        </div>
         <button
           type="button"
           onClick={props.onReset}
-          className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+          className="overlay-button"
         >
           Reset
         </button>
       </div>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Provider keys</h3>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Provider keys</h3>
         <p className="text-xs text-white/60">Manage provider keys through the system keychain.</p>
       </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Transcription</h3>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Transcription</h3>
         <p className="text-xs text-white/60">The transcription engine is selected when the app starts.</p>
       </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Keybinds</h3>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Keybinds</h3>
         <KeybindTable keybinds={props.keybinds} onRebind={props.onKeybindRebind} />
       </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Stealth</h3>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Stealth</h3>
         <p className="text-xs text-white/60">Portal screencast detection is not available yet.</p>
       </section>
-      <section className="space-y-2">
-        <h3 className="text-xs font-medium text-white/60">Modes and prompts</h3>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Modes and prompts</h3>
         <ModesPrompts
           value={props.modesPrompts}
           providerOptions={props.providerOptions}

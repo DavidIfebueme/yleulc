@@ -13,11 +13,11 @@ export function ListenPanel(props: ListenPanelProps) {
   const session = useListenSession({ onEntriesChange: props.onTranscriptChange })
   return (
     <div>
-      <div className="mt-2 flex items-center gap-1.5">
+      <div className="mt-3 flex items-center gap-1.5">
         <ListenWaveMark />
-        <p className="text-xs font-semibold text-white/80">Live transcript</p>
+        <p className="text-xs font-semibold text-white/85">Live transcript</p>
         {session.answers.length === 0 ? null : (
-          <span className="rounded-full bg-teal-400/15 px-1.5 py-px text-[10px] font-semibold text-teal-200">
+          <span className="overlay-badge bg-teal-400/15 text-teal-100">
             {`${session.answers.length} auto-answer${session.answers.length === 1 ? "" : "s"}`}
           </span>
         )}

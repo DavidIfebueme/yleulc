@@ -17,7 +17,7 @@ export function ListenStatusPill(props: ListenStatusPillProps) {
   const stateDot = props.listening ? "bg-emerald-400" : "bg-amber-400"
   const audioText = props.audioOn ? "Mute" : "Unmute"
   return (
-    <div className="overlay-drag flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+    <div className="overlay-drag flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-1.5">
       <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
         {dragDots.map((dot) => (
           <span key={dot} className="h-1 w-1 rounded-full bg-white/40" />
@@ -31,14 +31,14 @@ export function ListenStatusPill(props: ListenStatusPillProps) {
       <button
         type="button"
         onClick={props.onToggleAudio}
-        className="overlay-no-drag rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-white/80 hover:bg-white/10"
+        className="overlay-no-drag overlay-button rounded-full px-2 py-0.5"
       >
         {audioText}
       </button>
       <button
         type="button"
         onClick={props.onEndListen}
-        className="overlay-no-drag rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/90 hover:bg-white/15"
+        className="overlay-no-drag overlay-primary-button rounded-full px-2 py-0.5"
       >
         {`End ${formatListenDuration(props.listenSeconds)}`}
       </button>

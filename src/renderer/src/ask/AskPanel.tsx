@@ -208,7 +208,7 @@ export function AskPanel(props: AskPanelProps) {
         onClick={() => {
           setHidden(false)
         }}
-        className="rounded-full border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs text-white/80 shadow-2xl backdrop-blur-xl"
+        className="overlay-button rounded-full px-3 py-1.5"
       >
         Show overlay
       </button>
@@ -232,7 +232,7 @@ export function AskPanel(props: AskPanelProps) {
           setHidden(true)
         }}
       />
-      <div className="mt-2 flex items-center justify-between">
+      <div className="mt-3 flex items-center justify-between rounded-lg border border-white/8 bg-white/[0.025] px-2 py-1">
         <CluelyPromptModeSelect
           modeId={activePromptModeId}
           modes={props.promptModes}
@@ -270,7 +270,7 @@ export function AskPanel(props: AskPanelProps) {
                 <button
                   type="button"
                   onClick={stream.stop}
-                  className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                  className="overlay-button"
                 >
                   Stop
                 </button>
@@ -279,12 +279,12 @@ export function AskPanel(props: AskPanelProps) {
                 <AskErrorCard message={stream.errorMessage} onRetry={stream.retry} />
               ) : null}
               {stream.status === "empty" ? (
-                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <div className="overlay-card">
                   <p className="text-sm text-white/70">{emptyAskFallback}</p>
                   <button
                     type="button"
                     onClick={stream.retry}
-                    className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                    className="overlay-button mt-2"
                   >
                     Retry
                   </button>
@@ -317,7 +317,7 @@ export function AskPanel(props: AskPanelProps) {
               <button
                 type="button"
                 onClick={captureScreen}
-                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                className="overlay-button"
               >
                 Capture screen
               </button>
@@ -331,7 +331,7 @@ export function AskPanel(props: AskPanelProps) {
                   setCaptureError("")
                   setAreaSelecting(true)
                 }}
-                className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                className="overlay-button"
               >
                 Capture area
               </button>
@@ -345,7 +345,7 @@ export function AskPanel(props: AskPanelProps) {
               onClick={() => {
                 setSmartMode((value) => !value)
               }}
-              className={`mb-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
+                className={`mb-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${
                 smartMode
                   ? "border-violet-300/50 bg-violet-400/20 text-violet-100"
                   : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"

@@ -124,7 +124,7 @@ export function MeetingPanel(props: MeetingPanelProps) {
 
   if (!isMeetingBridgeAvailable()) {
     return (
-      <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+      <div className="overlay-card">
         <p className="text-sm font-medium text-white/90">Activity</p>
         <p className="mt-1 text-xs text-white/50">Meeting history needs the desktop app.</p>
       </div>
@@ -132,15 +132,15 @@ export function MeetingPanel(props: MeetingPanelProps) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+    <div className="space-y-3">
+      <div className="overlay-section">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium text-white/90">Activity</p>
           <button
             type="button"
             disabled={props.transcript.length === 0}
             onClick={saveSession}
-            className="rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10 disabled:opacity-40"
+            className="overlay-primary-button disabled:opacity-40"
           >
             End session and save
           </button>
@@ -155,7 +155,7 @@ export function MeetingPanel(props: MeetingPanelProps) {
         onReopen={reopenMeeting}
       />
       {detail === undefined ? null : (
-        <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+        <div className="overlay-card">
           <p className="text-sm font-medium text-white/90">{detail.title}</p>
           <p className="mt-1 text-[11px] text-white/50">{new Date(detail.startedAtMs).toLocaleString()}</p>
           <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-white/40">Transcript</p>
@@ -198,7 +198,7 @@ export function MeetingPanel(props: MeetingPanelProps) {
         </div>
       )}
       {exportText === "" ? null : (
-        <div className="rounded-xl border border-white/10 bg-black/40 p-3">
+        <div className="overlay-card">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40">Export</p>
           <pre className="mt-1 whitespace-pre-wrap text-xs text-white/70">{exportText}</pre>
         </div>

@@ -43,7 +43,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
               defaultMode: event.currentTarget.value === "listen" ? "listen" : "ask"
             }))
           }}
-          className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-white/90 outline-none"
+          className="overlay-select px-1.5 py-1 text-xs outline-none"
         >
           <option value="ask">Ask</option>
           <option value="listen">Live transcript</option>
@@ -57,7 +57,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
             const provider = props.providerOptions.find((option) => option.id === event.currentTarget.value)
             props.onChange((value) => ({ ...value, defaultProviderId: provider?.id ?? value.defaultProviderId }))
           }}
-          className="rounded-lg border border-white/10 bg-white/5 px-1.5 py-1 text-xs text-white/90 outline-none"
+          className="overlay-select px-1.5 py-1 text-xs outline-none"
         >
           {props.providerOptions.map((option) => (
             <option key={option.id} value={option.id}>
@@ -73,7 +73,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
           onChange={(event: ChangeEvent<HTMLInputElement>) => {
             props.onChange((value) => ({ ...value, defaultModel: event.currentTarget.value }))
           }}
-          className="w-40 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 outline-none"
+          className="overlay-input w-40 px-2 py-1 text-xs outline-none"
         />
       </label>
       <label className="block space-y-1 text-xs text-white/70">
@@ -84,7 +84,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
             props.onChange((value) => ({ ...value, systemPrompt: event.currentTarget.value }))
           }}
           rows={3}
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 outline-none"
+          className="overlay-input w-full px-2 py-1 text-xs outline-none"
         />
       </label>
       <div className="space-y-2">
@@ -93,13 +93,13 @@ export function ModesPrompts(props: ModesPromptsProps) {
           <button
             type="button"
             onClick={addPromptMode}
-            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+            className="overlay-button"
           >
             Add mode
           </button>
         </div>
         {props.value.promptModes.map((mode) => (
-          <div key={mode.id} className="space-y-1 rounded-xl border border-white/10 bg-white/5 p-2">
+          <div key={mode.id} className="overlay-card space-y-1 p-2">
             <input
               value={mode.label}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -110,7 +110,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
                   )
                 }))
               }}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white/90 outline-none"
+              className="overlay-input w-full px-2 py-1 text-xs outline-none"
             />
             <textarea
               value={mode.prompt}
@@ -123,7 +123,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
                 }))
               }}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white/90 outline-none"
+              className="overlay-input w-full px-2 py-1 text-xs outline-none"
             />
             {props.value.promptModes.length > 1 ? (
               <button
@@ -141,7 +141,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
                     }
                   })
                 }}
-                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+                className="overlay-button"
               >
                 Remove mode
               </button>

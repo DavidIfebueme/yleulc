@@ -30,7 +30,7 @@ export function ProviderKeysTable(props: ProviderKeysTableProps) {
         const message = props.testMessages[row.id] ?? ""
         const missing = row.registryMissing || !row.hasKeychainKey
         return (
-          <div key={row.id} className="rounded-xl border border-white/10 bg-white/5 p-2">
+          <div key={row.id} className="overlay-card p-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-white/90">{row.displayName}</span>
               {missing ? (
@@ -48,7 +48,7 @@ export function ProviderKeysTable(props: ProviderKeysTableProps) {
               }}
               type="password"
               placeholder={`enter ${row.displayName} key`}
-              className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-white/90 outline-none"
+            className="overlay-input mt-2 w-full px-2 py-1 text-xs outline-none"
             />
             <div className="mt-2 flex items-center gap-1.5">
               <button
@@ -57,7 +57,7 @@ export function ProviderKeysTable(props: ProviderKeysTableProps) {
                   props.onSave(row.id, draft)
                   changeDraft(row.id, "")
                 }}
-                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+                className="overlay-primary-button"
               >
                 Save
               </button>
@@ -66,7 +66,7 @@ export function ProviderKeysTable(props: ProviderKeysTableProps) {
                 onClick={() => {
                   props.onTest(row.id)
                 }}
-                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+                className="overlay-button"
               >
                 {testing ? "Testing…" : "Test"}
               </button>
@@ -75,7 +75,7 @@ export function ProviderKeysTable(props: ProviderKeysTableProps) {
                 onClick={() => {
                   props.onRemove(row.id)
                 }}
-                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+                className="overlay-button"
               >
                 Remove
               </button>

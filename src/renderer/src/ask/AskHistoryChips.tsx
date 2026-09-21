@@ -8,13 +8,13 @@ export function AskHistoryChips(props: AskHistoryChipsProps) {
     return null
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="overlay-action-strip">
       {props.questions.map((question) => (
         <button
           key={question}
           type="button"
           onClick={() => props.onSelect(question)}
-          className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60 hover:bg-white/10 hover:text-white/90"
+          className="overlay-button shrink-0 rounded-full font-normal text-white/65"
         >
           {question}
         </button>

@@ -11,8 +11,8 @@ interface ListenAutoAnswerCardProps {
 export function ListenAutoAnswerCard(props: ListenAutoAnswerCardProps) {
   const bullets = toAskBullets(props.answer.answer)
   return (
-    <div className="rounded-xl border border-teal-400/20 bg-teal-400/5 px-3 py-2">
-      <p className="text-xs font-medium text-white/60">{props.answer.question}</p>
+    <div className="rounded-xl border border-teal-300/20 bg-teal-400/[0.06] px-3 py-2">
+      <p className="text-xs font-semibold text-teal-50/80">{props.answer.question}</p>
       {props.answer.status === "streaming" && props.answer.answer.trim() === "" ? (
         <p className="mt-1 animate-pulse text-xs text-white/50">Answering…</p>
       ) : null}
@@ -30,7 +30,7 @@ export function ListenAutoAnswerCard(props: ListenAutoAnswerCardProps) {
           onClick={() => {
             props.onStop(props.answer.requestId)
           }}
-          className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+          className="overlay-button mt-2"
         >
           Stop
         </button>
@@ -55,7 +55,7 @@ export function ListenAutoAnswerCard(props: ListenAutoAnswerCardProps) {
           onClick={() => {
             props.onRetry(props.answer.requestId)
           }}
-          className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+          className="overlay-button mt-2"
         >
           Retry
         </button>
