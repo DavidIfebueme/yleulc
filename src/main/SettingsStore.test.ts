@@ -157,6 +157,38 @@ describe("SettingsStore", () => {
     expect(await readdir(directory)).toEqual(["settings.json"])
     await rm(directory, { force: true, recursive: true })
   })
+  it("persists the OpenRouter free router selection", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
+    const path = join(directory, "settings.json")
+    const saved = {
+      ...defaultSettingsSnapshot,
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        defaultModel: "openrouter/free",
+        defaultProviderId: "openrouter" as const
+      }
+    }
+    await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          yield* store.setModesPrompts(saved.modesPrompts)
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    const restored = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* store.getModesPrompts()
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    expect(restored).toEqual(saved.modesPrompts)
+    await rm(directory, { force: true, recursive: true })
+  })
   it("durably replaces settings without leaving a temporary file", async () => {
     const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
     const path = join(directory, "settings.json")

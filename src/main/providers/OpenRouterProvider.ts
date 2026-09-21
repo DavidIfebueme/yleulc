@@ -11,6 +11,8 @@ import type { Provider } from "./Provider"
 
 export const openRouterDefaultBaseUrl = "https://openrouter.ai/api/v1"
 
+export const openRouterFreeModel = "openrouter/free"
+
 export const openRouterCuratedModels: ReadonlyArray<string> = [
   "anthropic/claude-sonnet-4",
   "google/gemini-2.5-flash",
@@ -20,6 +22,7 @@ export const openRouterCuratedModels: ReadonlyArray<string> = [
 ]
 
 export const openRouterVisionModels: ReadonlyArray<string> = [
+  openRouterFreeModel,
   "anthropic/claude-sonnet-4",
   "google/gemini-2.5-flash",
   "google/gemini-2.5-pro",
@@ -27,13 +30,24 @@ export const openRouterVisionModels: ReadonlyArray<string> = [
   "openai/gpt-4o-mini"
 ]
 
+function withFreeRouter(provider: Provider): Provider {
+  return {
+    ...provider,
+    listModels: () =>
+      Effect.map(provider.listModels(), (models) => [
+        openRouterFreeModel,
+        ...models.filter((model) => model !== openRouterFreeModel)
+      ])
+  }
+}
+
 export class OpenRouterProvider extends Context.Service<OpenRouterProvider, Provider>()("OpenRouterProvider") {
   static readonly Live = Layer.effect(
     OpenRouterProvider,
     Effect.gen(function* () {
       const apiKey = yield* Config.Redacted("OPENROUTER_API_KEY")
       const baseUrl = yield* Config.withDefault(Config.String("OPENROUTER_BASE_URL"), openRouterDefaultBaseUrl)
-      return makeOpenAICompatibleProvider({
+      return withFreeRouter(makeOpenAICompatibleProvider({
         baseUrl,
         curatedModels: openRouterCuratedModels,
         displayName: "OpenRouter",
@@ -41,19 +55,21 @@ export class OpenRouterProvider extends Context.Service<OpenRouterProvider, Prov
         providerId: "openrouter",
         transport: liveTransport("openrouter", baseUrl, apiKey),
         visionModels: openRouterVisionModels
-      })
+      }))
     })
   )
   static readonly Test = Layer.succeed(
     OpenRouterProvider,
-    makeOpenAICompatibleProvider({
-      baseUrl: openRouterDefaultBaseUrl,
-      curatedModels: openRouterCuratedModels,
-      displayName: "OpenRouter",
-      parseSseText: chatEventsFromOpenRouterSseText,
-      providerId: "openrouter",
-      transport: fixtureTransport(openrouterTextStream, openrouterModelList),
-      visionModels: openRouterVisionModels
-    })
+    withFreeRouter(
+      makeOpenAICompatibleProvider({
+        baseUrl: openRouterDefaultBaseUrl,
+        curatedModels: openRouterCuratedModels,
+        displayName: "OpenRouter",
+        parseSseText: chatEventsFromOpenRouterSseText,
+        providerId: "openrouter",
+        transport: fixtureTransport(openrouterTextStream, openrouterModelList),
+        visionModels: openRouterVisionModels
+      })
+    )
   )
 }

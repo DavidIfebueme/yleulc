@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { openrouterUsageStream } from "./fixtures/openrouterUsageStream"
 import {
   OpenRouterProvider,
+  openRouterFreeModel,
   openRouterVisionModels
 } from "./OpenRouterProvider"
 import {
@@ -42,13 +43,14 @@ describe("OpenRouterProvider", () => {
       { _tag: "done", finishReason: "stop" }
     ])
   })
-  it("discovers models from the recorded model list", async () => {
+  it("injects the free router when the recorded model list omits it", async () => {
     const program = Effect.gen(function* () {
       const provider = yield* OpenRouterProvider
       return yield* provider.listModels()
     })
     const models = await Effect.runPromise(Effect.provide(program, OpenRouterProvider.Test))
-    expect(models).toEqual(["openai/gpt-4o", "google/gemini-2.5-flash"])
+    expect(models).toEqual([openRouterFreeModel, "openai/gpt-4o", "google/gemini-2.5-flash"])
+    expect(openRouterVisionModels).toContain(openRouterFreeModel)
   })
   it("treats usage frames as accounting without a second completion", async () => {
     const provider = makeOpenAICompatibleProvider({

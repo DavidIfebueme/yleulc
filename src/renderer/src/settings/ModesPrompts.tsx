@@ -84,9 +84,12 @@ export function ModesPrompts(props: ModesPromptsProps) {
               <option key={model} value={model}>
                 {model}
               </option>
-            ))}
+          ))}
         </select>
       </label>
+      {props.value.defaultProviderId === "openrouter" && props.value.defaultModel === "openrouter/free" ? (
+        <p className="text-xs text-white/60">OpenRouter Free is zero-cost. Availability and rate limits vary.</p>
+      ) : null}
       <label className="block space-y-1 text-xs text-white/70">
         <span>System prompt</span>
         <textarea

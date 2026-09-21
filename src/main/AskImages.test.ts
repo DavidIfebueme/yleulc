@@ -2,6 +2,8 @@ import { Effect, Stream } from "effect"
 import { describe, expect, it } from "vitest"
 import { decodeAskRequest, type AskRequest } from "../shared/askIpc"
 import { screenshotMimeType } from "../shared/screenshot"
+import { defaultSettingsSnapshot } from "../shared/settingsIpc"
+import { applySettingsToAskRequest } from "./AskIpc"
 import { makeAskService, toChatRequest } from "./AskService"
 import { makeProviderRegistry } from "./providers/ProviderRegistry"
 import type { ChatRequest, Provider } from "./providers/Provider"
@@ -61,5 +63,35 @@ describe("ask image attachments", () => {
     expect(seen.current?.messages[0]?.images).toEqual([
       { base64: fixtureScreenshotImage.base64, mimeType: screenshotMimeType }
     ])
+  })
+  it("delivers screenshots through the saved OpenRouter free router", async () => {
+    const seen: { current: ChatRequest | undefined } = { current: undefined }
+    const provider: Provider = {
+      completeChat: (request) => {
+        seen.current = request
+        return Stream.fromIterable([{ _tag: "done", finishReason: "stop" }])
+      },
+      defaultBaseUrl: "https://openrouter.ai/api/v1",
+      displayName: "OpenRouter",
+      id: "openrouter",
+      listModels: () => Effect.succeed(["openrouter/free"]),
+      visionModels: ["openrouter/free"]
+    }
+    const configured = applySettingsToAskRequest(
+      { images: [fixtureScreenshotImage], question: "What?", requestId: "ask-img-005" },
+      {
+        ...defaultSettingsSnapshot,
+        modesPrompts: {
+          ...defaultSettingsSnapshot.modesPrompts,
+          defaultModel: "openrouter/free",
+          defaultProviderId: "openrouter"
+        }
+      }
+    )
+    await Effect.runPromise(Stream.runCollect(makeAskService(makeProviderRegistry([provider])).streamAsk(configured)))
+    expect(seen.current).toMatchObject({
+      messages: [{ images: [{ base64: fixtureScreenshotImage.base64, mimeType: screenshotMimeType }] }],
+      model: "openrouter/free"
+    })
   })
 })

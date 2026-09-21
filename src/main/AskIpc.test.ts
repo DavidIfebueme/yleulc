@@ -6,7 +6,7 @@ import { defaultSettingsSnapshot } from "../shared/settingsIpc"
 import { promptForSmartMode } from "../shared/askPrompts"
 import { makeAskService } from "./AskService"
 import { makeProviderRegistry } from "./providers/ProviderRegistry"
-import { ProviderError, type ChatEvent, type Provider } from "./providers/Provider"
+import { ProviderError, type ChatEvent, type ChatRequest, type Provider } from "./providers/Provider"
 
 const askRequest: AskRequest = {
   model: "gpt-4o",
@@ -97,6 +97,33 @@ describe("applySettingsToAskRequest", () => {
       providerId: "anthropic",
       systemPrompt: "Use the user's experience and context.\n\nAnswer as a concise interview coach."
     })
+  })
+  it("routes text through the saved OpenRouter free router", async () => {
+    const seen: { current: ChatRequest | undefined } = { current: undefined }
+    const provider: Provider = {
+      completeChat: (request) => {
+        seen.current = request
+        return Stream.fromIterable([{ _tag: "done", finishReason: "stop" }])
+      },
+      defaultBaseUrl: "https://openrouter.ai/api/v1",
+      displayName: "OpenRouter",
+      id: "openrouter",
+      listModels: () => Effect.succeed(["openrouter/free"]),
+      visionModels: ["openrouter/free"]
+    }
+    const configured = applySettingsToAskRequest(
+      { question: askRequest.question, requestId: askRequest.requestId },
+      {
+        ...defaultSettingsSnapshot,
+        modesPrompts: {
+          ...defaultSettingsSnapshot.modesPrompts,
+          defaultModel: "openrouter/free",
+          defaultProviderId: "openrouter"
+        }
+      }
+    )
+    await Effect.runPromise(Stream.runCollect(makeAskService(makeProviderRegistry([provider])).streamAsk(configured)))
+    expect(seen.current?.model).toBe("openrouter/free")
   })
 
   it("keeps explicit request provider and model values", () => {
