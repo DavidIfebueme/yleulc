@@ -17,10 +17,11 @@ cat > "$RUN_DIR/home/settings.json" <<JSON
 {"keybinds":{"assist":"ctrl+shift+a","submit":"ctrl+enter","toggleListen":"ctrl+shift+l","toggleTranscript":"ctrl+shift+t","toggleVisibility":"ctrl+shift+space"},"listen":{"autoAnswer":false},"modesPrompts":{"activePromptModeId":"general","defaultMode":"ask","defaultModel":"deepseek-flash","defaultProviderId":"deepseek","promptModes":[{"id":"general","label":"General","prompt":""}],"systemPrompt":""},"stealth":{"autoHideOnPortalScreencast":true,"showSingleWindowGuidance":true},"transcriptionEngine":"$TRACE"}
 JSON
 
-node "$SKILL_DIR/scripts/check-fresh-build.mjs" "$APP_DIR" > "$RUN_DIR/artifacts/fresh-build.txt"
+node "$SKILL_DIR/scripts/check-fresh-build.mjs" "$APP_DIR" > "$RUN_DIR/artifacts/fresh-build-pre.txt" 2>&1 || true
 
 cd "$APP_DIR"
 npm run build > "$RUN_DIR/artifacts/build.log" 2>&1
+node "$SKILL_DIR/scripts/check-fresh-build.mjs" "$APP_DIR" > "$RUN_DIR/artifacts/fresh-build.txt" 2>&1
 
 MOCK_SCENARIO="$MOCK_SCENARIO" MOCK_PORT="$MOCK_PORT" node "$SKILL_DIR/scripts/mock-provider.mjs" > "$RUN_DIR/mock.log" 2>&1 &
 echo $! > "$RUN_DIR/mock.pid"

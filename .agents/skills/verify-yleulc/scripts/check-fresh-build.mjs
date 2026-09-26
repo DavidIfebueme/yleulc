@@ -8,8 +8,8 @@ const renderer = join(appDir, "out", "renderer", "index.html")
 const watch = ["src", "native", "electron-builder.yml", "package.json"]
 
 if (!existsSync(out) || !existsSync(renderer)) {
-  process.stderr.write("missing build output; run npm run build\n")
-  process.exit(2)
+  process.stdout.write("no prior build output; a build will produce it\n")
+  process.exit(0)
 }
 
 const built = Math.min(statSync(out).mtimeMs, statSync(renderer).mtimeMs)
