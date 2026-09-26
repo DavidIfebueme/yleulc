@@ -35,16 +35,44 @@ DEEPSEEK_API_KEY="verify-key" \
 DEEPSEEK_BASE_URL="http://127.0.0.1:$MOCK_PORT" \
 YLEULC_SETTINGS_PATH="$RUN_DIR/home/settings.json" \
 DISPLAY=":$DISPLAY_NUM" \
-  "$APP_DIR/node_modules/.bin/electron" --no-sandbox --remote-debugging-port="$CDP_PORT" "$APP_DIR/out/main/index.js" \
+  "$APP_DIR/node_modules/.bin/electron" --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port="$CDP_PORT" "$APP_DIR/out/main/index.js" \
   > "$RUN_DIR/app.log" 2>&1 &
 echo $! > "$RUN_DIR/app.pid"
+APP_PID="$(cat "$RUN_DIR/app.pid")"
 
+cdp_ready=0
 for _ in $(seq 1 60); do
   if curl -s "http://127.0.0.1:$CDP_PORT/json/list" > /dev/null 2>&1; then
+    cdp_ready=1
+    break
+  fi
+  if ! kill -0 "$APP_PID" 2>/dev/null; then
     break
   fi
   sleep 0.5
 done
+
+if [ "$cdp_ready" != "1" ]; then
+  echo "app did not expose a CDP page" >&2
+  echo "app_alive=$(kill -0 "$APP_PID" 2>/dev/null && echo yes || echo no)" >&2
+  echo "--- app.log ---" >&2
+  tail -n 40 "$RUN_DIR/app.log" >&2
+  echo "--- xvfb.log ---" >&2
+  tail -n 20 "$RUN_DIR/xvfb.log" >&2
+  echo "--- electron binary ---" >&2
+  ls -la "$APP_DIR/node_modules/.bin/electron" >&2 2>&1 || true
+  "$APP_DIR/node_modules/.bin/electron" --version 2>&1 | tail -n 3 >&2 || true
+  echo "--- display ---" >&2
+  DISPLAY=":$DISPLAY_NUM" xdpyinfo 2>&1 | head -n 3 >&2 || true
+  for name in app xvfb mock; do
+    pid_file="$RUN_DIR/$name.pid"
+    if [ -f "$pid_file" ]; then
+      kill "$(cat "$pid_file")" 2>/dev/null || true
+      rm -f "$pid_file"
+    fi
+  done
+  exit 1
+fi
 
 for _ in $(seq 1 60); do
   rendered="$(node "$SKILL_DIR/scripts/drive.mjs" text 2>/dev/null || true)"

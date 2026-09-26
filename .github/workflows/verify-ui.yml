@@ -32,5 +32,5 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: verify-ui-evidence
-          path: /tmp/opencode/verify-yleulc-*/artifacts
+          path: /tmp/opencode/verify-yleulc-*
           if-no-files-found: warn
