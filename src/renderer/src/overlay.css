@@ -375,7 +375,7 @@ body {
   width: 100%;
 }
 
-.ask-input-row > div {
+.ask-input-row > .overlay-card {
   min-width: 0;
   flex: 1 1 auto;
 }

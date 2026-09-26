@@ -49,6 +49,14 @@ record "ask streams and renders an answer" "$([ "$rc" = 0 ] && echo 1 || echo 0)
 node "$SKILL_DIR/scripts/drive.mjs" shot "$RUN_DIR/artifacts/ask/answered.png" > /dev/null
 record "ask screenshot captured" "$([ -s "$RUN_DIR/artifacts/ask/answered.png" ] && echo 1 || echo 0)"
 
+visibility="$(node "$SKILL_DIR/scripts/drive.mjs" visible "Hi! How can I help?")"
+echo "answer_visibility=$visibility" > "$RUN_DIR/artifacts/ask/visibility.txt"
+record "answer is visible without scrolling" "$([ "$visibility" = "visible" ] && echo 1 || echo 0)"
+
+clipped="$(node "$SKILL_DIR/scripts/drive.mjs" clipped)"
+echo "clipped=$clipped" > "$RUN_DIR/artifacts/ask/clipped.txt"
+record "no controls clipped horizontally" "$([ "$clipped" = "none" ] && echo 1 || echo 0)"
+
 node "$SKILL_DIR/scripts/drive.mjs" click "Settings" > /dev/null
 settings_body="$(node "$SKILL_DIR/scripts/drive.mjs" text)"
 echo "$settings_body" > "$RUN_DIR/artifacts/settings/panel.txt"

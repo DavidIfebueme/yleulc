@@ -6,11 +6,11 @@ interface AssistSubmitBarProps {
 
 export function AssistSubmitBar(props: AssistSubmitBarProps) {
   return (
-    <div className="mt-1 flex min-w-0 items-center gap-2">
+    <div className="flex shrink-0 items-center gap-1.5">
       <button
         type="button"
         onClick={props.onAssist}
-        className="overlay-button min-w-0 flex-1 border-dashed py-2 text-sm"
+        className="overlay-button border-dashed"
       >
         Get Answer
       </button>
@@ -18,7 +18,7 @@ export function AssistSubmitBar(props: AssistSubmitBarProps) {
         type="button"
         onClick={props.onSubmit}
         disabled={props.canSubmit === false}
-        className="overlay-primary-button shrink-0 py-2 text-sm disabled:opacity-40"
+        className="overlay-primary-button disabled:opacity-40"
       >
         Submit
       </button>

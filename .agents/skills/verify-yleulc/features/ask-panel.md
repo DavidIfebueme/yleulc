@@ -30,7 +30,9 @@ Preconditions:
 - **Capture the empty state.** Run `node $SKILL_DIR/scripts/drive.mjs shot $RUN_DIR/artifacts/ask/empty.png`. Read the PNG with your vision and confirm the composer, quick action strip, and pinned Get Answer and Submit row are visible and unclipped.
 - **Send a question.** Run `node $SKILL_DIR/scripts/drive.mjs ask "hi"`. The JSON has `status: "done"`, `answer` equal to `Hi! How can I help?`, and `answerRendered: true`.
 - **Confirm the answer is on screen.** Run `node $SKILL_DIR/scripts/drive.mjs text`. The text contains `hi` and `Hi! How can I help?` and shows `Tell Me More` and `Copy`.
-- **Capture the answer.** Run `node $SKILL_DIR/scripts/drive.mjs shot $RUN_DIR/artifacts/ask/answered.png`. Read the PNG with your vision and confirm the question bubble and the answer appear in the scroll region with no clipped controls.
+- **Prove the answer is inside the visible region.** Run `node $SKILL_DIR/scripts/drive.mjs visible "Hi! How can I help?"`. It prints `visible`. `clipped` means the answer is in the DOM but scrolled out of the region, which is a defect: the ask region must pin the answer card to the top when a question is submitted.
+- **Prove no control is cut off.** Run `node $SKILL_DIR/scripts/drive.mjs clipped`. It prints `none`. A list names the controls that overflow the 420px viewport without a scrollable ancestor. Controls inside the horizontally scrollable chip strip are excluded by design.
+- **Capture the answer.** Run `node $SKILL_DIR/scripts/drive.mjs shot $RUN_DIR/artifacts/ask/answered.png`. Read the PNG with your vision and confirm the answer text is readable, the question bubble sits above it, and Get Answer and Submit are both fully inside the frame.
 - **Record the timings.** Keep the `ask` JSON `firstTokenMs` and `settledMs` from the same command. Report them as numbers.
 - **Prove the provider was called.** Run `curl -s http://127.0.0.1:$MOCK_PORT/requests`. The log contains a `POST /chat/completions` whose body model is `deepseek-flash`.
 - **Failure path.** With `MOCK_SCENARIO=error`, run `node $SKILL_DIR/scripts/drive.mjs ask "hi"`. The JSON has `status: "error"` and `errorShown: true`, and the UI shows `Answer failed` with a `Retry` button.
@@ -39,7 +41,8 @@ Preconditions:
 ## Gotchas
 
 - `drive.mjs ask` types into the real input. Do not also call `askQuestion` from `eval`; that bypasses the UI path and proves only the IPC layer.
-- The answer scrolls inside `[data-scroll-region="ask"]`. A screenshot taken from the top may not show the answer; assert the DOM text as well.
+- The answer scrolls inside `[data-scroll-region="ask"]`. The region pins the answer card to its top when a question arrives and scrolls to the newest segment while listening. Assert both the DOM text and `visible`; a text-only pass hides the clipping defect.
+- The composer is one row: Smart Mode, the input, the Tab hint, Get Answer, and Submit. Any change that widens a control there can push Submit past the frame; run `clipped`.
 - The `usage` event is emitted after `done`. `ask` resolves on `done`, so a missing usage event in the JSON is expected.
 - The status pill is part of every screenshot. Read its wording so a listen regression is not mistaken for an Ask regression.
 - A provider error from the mock is the intended `ask-error` proof, not a broken run.

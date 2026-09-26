@@ -168,6 +168,47 @@ if (command === "text") {
       '(() => { const bar = document.querySelector(\'section[aria-label="Live session status"]\'); return bar === null ? "ABSENT" : bar.innerText.replace(/\\s+/g, " ").trim(); })()'
     )
   )
+} else if (command === "visible") {
+  const text = rest.join(" ")
+  output = String(
+    await evaluate(`(() => {
+      const region = document.querySelector('[data-scroll-region="ask"]');
+      if (region === null) return "NO-REGION";
+      const nodes = Array.from(region.querySelectorAll("*"));
+      const target = nodes.find((node) => (node.textContent ?? "").includes(${JSON.stringify(text)}));
+      if (target === undefined) return "NOT-RENDERED";
+      const rect = target.getBoundingClientRect();
+      const box = region.getBoundingClientRect();
+      const inside = rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1 && rect.height > 0;
+      return inside ? "visible" : "clipped";
+    })()`)
+  )
+} else if (command === "clipped") {
+  output = String(
+    await evaluate(`(() => {
+      const width = window.innerWidth;
+      const inScroller = (node) => {
+        let current = node.parentElement;
+        while (current !== null) {
+          const overflowX = getComputedStyle(current).overflowX;
+          if ((overflowX === "auto" || overflowX === "scroll") && current.scrollWidth > current.clientWidth + 1) {
+            return true;
+          }
+          current = current.parentElement;
+        }
+        return false;
+      };
+      const offenders = Array.from(document.querySelectorAll("button, input, select, textarea, a"))
+        .filter((node) => {
+          const rect = node.getBoundingClientRect();
+          if (rect.width === 0 && rect.height === 0) return false;
+          if (inScroller(node)) return false;
+          return rect.right > width + 0.5 || rect.left < -0.5;
+        })
+        .map((node) => (node.textContent ?? node.getAttribute("aria-label") ?? node.tagName).trim().slice(0, 24));
+      return offenders.length === 0 ? "none" : JSON.stringify(offenders);
+    })()`)
+  )
 } else if (command === "type") {
   const text = rest.join(" ")
   await send("Input.insertText", { text })
@@ -194,7 +235,7 @@ if (command === "text") {
   }
   output = found ? "found" : "TIMEOUT"
 } else {
-  process.stderr.write("usage: drive.mjs <text|eval|shot|click|status|type|focus|ask|perf|wait> [...]\n")
+  process.stderr.write("usage: drive.mjs <text|eval|shot|click|status|visible|clipped|type|focus|ask|perf|wait> [...]\n")
   process.exit(2)
 }
 

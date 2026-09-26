@@ -59,6 +59,8 @@ export function AskPanel(props: AskPanelProps) {
   const [smartMode, setSmartMode] = useState(false)
   const [activePromptModeId, setActivePromptModeId] = useState(props.activePromptModeId)
   const attachCounter = useRef(0)
+  const askScrollRef = useRef<HTMLDivElement | null>(null)
+  const answerCardRef = useRef<HTMLDivElement | null>(null)
   const stream = useAskStream()
   const session = useListenSession({
     autoAnswerEnabled: props.autoAnswerEnabled,
@@ -106,6 +108,24 @@ export function AskPanel(props: AskPanelProps) {
       window.clearInterval(timerId)
     }
   }, [session.running])
+
+  useEffect(() => {
+    const region = askScrollRef.current
+    const card = answerCardRef.current
+    if (region === null || card === null) {
+      return
+    }
+    const delta = card.getBoundingClientRect().top - region.getBoundingClientRect().top
+    region.scrollTop = region.scrollTop + delta
+  }, [stream.question])
+
+  useEffect(() => {
+    const region = askScrollRef.current
+    if (region === null) {
+      return
+    }
+    region.scrollTop = region.scrollHeight
+  }, [session.entries])
 
   const submitDraft = (): void => {
     const trimmed = draft.trim()
@@ -260,7 +280,7 @@ export function AskPanel(props: AskPanelProps) {
           }}
         />
       </div>
-      <div className="overlay-ask-content" data-scroll-region="ask">
+      <div className="overlay-ask-content" data-scroll-region="ask" ref={askScrollRef}>
       {transcriptOpen ? (
         <ListenPanel
           answers={session.answers}
@@ -279,7 +299,7 @@ export function AskPanel(props: AskPanelProps) {
               <p>Ask for the next answer, a recap, or help with what is on screen.</p>
             </div>
           ) : (
-            <div className="ask-answer-card">
+            <div className="ask-answer-card" ref={answerCardRef}>
               <AskQuestionBubble question={stream.question} />
               {stream.status === "streaming" && stream.answer.trim() === "" ? (
                 <p className="text-xs text-white/50">Streaming answer…</p>
@@ -370,8 +390,8 @@ export function AskPanel(props: AskPanelProps) {
               Smart Mode
             </button>
             <AskInput value={draft} onChange={setDraft} onSubmit={submitDraft} />
+            <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
           </div>
-          <AssistSubmitBar onAssist={getAnswerFromScreen} onSubmit={submitDraft} canSubmit={draft.trim() !== ""} />
         </div>
       )}
     </div>
