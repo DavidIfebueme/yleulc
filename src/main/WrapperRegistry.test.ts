@@ -60,14 +60,14 @@ describe("isAppProcess", () => {
     expect(isAppProcess({ cmdline: "/tmp/decoy/firefox", exePath: "/tmp/decoy/firefox" }, "/usr/bin/firefox")).toBe(false)
   })
   it("falls back to basename equality when the exe path is unreadable", () => {
-    expect(isAppProcess({ cmdline: "/usr/lib/firefox/firefox", exePath: null }, "/usr/bin/firefox")).toBe(true)
-    expect(isAppProcess({ cmdline: "/tmp/decoy/firefoxish", exePath: null }, "/usr/bin/firefox")).toBe(false)
-    expect(isAppProcess({ cmdline: "", exePath: null }, "/usr/bin/firefox")).toBe(false)
+    expect(isAppProcess({ cmdline: "/opt/example/firefox", exePath: null }, "/somewhere/else/firefox")).toBe(true)
+    expect(isAppProcess({ cmdline: "/tmp/decoy/firefoxish", exePath: null }, "/opt/example/firefox")).toBe(false)
+    expect(isAppProcess({ cmdline: "", exePath: null }, "/opt/example/firefox")).toBe(false)
   })
   it("treats an empty target as a non-match", () => {
     expect(isAppProcess({ cmdline: "", exePath: null }, "")).toBe(false)
-    expect(isAppProcess({ cmdline: "/usr/bin/firefox", exePath: "/usr/bin/firefox" }, "")).toBe(false)
-    expect(isAppProcess({ cmdline: "/usr/bin/firefox", exePath: "" }, "/usr/bin/firefox")).toBe(true)
+    expect(isAppProcess({ cmdline: "/opt/example/firefox", exePath: "/opt/example/firefox" }, "")).toBe(false)
+    expect(isAppProcess({ cmdline: "/opt/example/firefox", exePath: "" }, "/somewhere/else/firefox")).toBe(true)
   })
 })
 
