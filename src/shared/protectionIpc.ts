@@ -1,10 +1,10 @@
 import { Schema } from "effect"
 
-export const ProtectionAppIdSchema = Schema.Literals(["chrome", "firefox", "zoom", "discord"])
+export const ProtectionAppIdSchema = Schema.Literals(["chrome", "firefox", "brave", "zoom", "discord"])
 
 export type ProtectionAppId = typeof ProtectionAppIdSchema.Type
 
-export const ProtectionStateSchema = Schema.Literals(["not installed", "running unwrapped", "running wrapped", "verified"])
+export const ProtectionStateSchema = Schema.Literals(["not installed", "not running", "running unwrapped", "running wrapped", "verified"])
 
 export type ProtectionState = typeof ProtectionStateSchema.Type
 

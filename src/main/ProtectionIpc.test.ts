@@ -21,13 +21,13 @@ describe("ProtectionIpc", () => {
   })
 
   it("rejects malformed relaunch requests", async () => {
-    const error = await Effect.runPromise(Effect.flip(relaunchProtectedApp({ id: "brave" }, service)))
+    const error = await Effect.runPromise(Effect.flip(relaunchProtectedApp({ id: "vivaldi" }, service)))
     expect(error.message).toBe("invalid protection app request")
   })
 
-  it("preserves service errors", async () => {
+  it("surfaces the service reason on failure", async () => {
     const failing: ProtectionServiceShape = { ...service, protectAll: () => Effect.fail(new ProtectionError({ reason: "read-proc" })) }
     const error = await Effect.runPromise(Effect.flip(protectAllApps(failing)))
-    expect(error.reason).toBe("read-proc")
+    expect(error.message).toBe("read-proc")
   })
 })

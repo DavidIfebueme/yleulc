@@ -46,21 +46,26 @@ const dashboard = (processes: ReadonlyArray<ProtectionProcess>, log = "", instal
 describe("ProtectionService", () => {
   it("reports not installed", async () => {
     const result = await dashboard([])
-    expect(result.apps.map((app) => app.state)).toEqual(["not installed", "not installed", "not installed", "not installed"])
+    expect(result.apps.map((app) => app.state)).toEqual(["not installed", "not installed", "not installed", "not installed", "not installed"])
+  })
+
+  it("reports not running when the binary exists but no process matches", async () => {
+    const result = await dashboard([], "", true)
+    expect(result.apps.map((app) => app.state)).toEqual(["not running", "not running", "not running", "not running", "not running"])
   })
 
   it("reports running unwrapped", async () => {
-    const result = await dashboard([{ cmdline: "/usr/bin/firefox", environment: "PATH=/usr/bin", pid: 14 }])
+    const result = await dashboard([{ cmdline: "/usr/bin/firefox", environment: "PATH=/usr/bin", exePath: "/usr/bin/firefox", pid: 14 }])
     expect(result.apps.find((app) => app.id === "firefox")).toEqual({ id: "firefox", label: "Firefox", pids: [14], state: "running unwrapped" })
   })
 
   it("reports running wrapped", async () => {
-    const result = await dashboard([{ cmdline: "/usr/bin/firefox", environment: "LD_PRELOAD=/tmp/capture_rewriter.so", pid: 14 }])
+    const result = await dashboard([{ cmdline: "/usr/bin/firefox", environment: "LD_PRELOAD=/tmp/capture_rewriter.so", exePath: "/usr/bin/firefox", pid: 14 }])
     expect(result.apps.find((app) => app.id === "firefox")?.state).toBe("running wrapped")
   })
 
   it("reports verified only for a hook line matching the process pid", async () => {
-    const processes = [{ cmdline: "/usr/bin/firefox", environment: "LD_PRELOAD=/tmp/capture_rewriter.so", pid: 14 }]
+    const processes = [{ cmdline: "/usr/bin/firefox", environment: "LD_PRELOAD=/tmp/capture_rewriter.so", exePath: "/usr/bin/firefox", pid: 14 }]
     const verified = await dashboard(processes, "capture hook fired (pid=14)")
     const unmatched = await dashboard(processes, "capture hook fired (pid=15)")
     expect(verified.apps.find((app) => app.id === "firefox")?.state).toBe("verified")
@@ -111,7 +116,7 @@ describe("ProtectionService", () => {
         layer
       )
     )
-    expect(started).toEqual(["firefox", "chrome", "firefox", "zoom", "discord"])
+    expect(started).toEqual(["firefox", "chrome", "firefox", "brave", "zoom", "discord"])
   })
 
   it("notifies only when an app becomes running unwrapped and cleans up the watcher", async () => {
@@ -152,7 +157,7 @@ describe("ProtectionService", () => {
         layer
       )
     )
-    processes = [{ cmdline: "/usr/bin/firefox", environment: "", pid: 22 }]
+    processes = [{ cmdline: "/usr/bin/firefox", environment: "", exePath: "/usr/bin/firefox", pid: 22 }]
     tick?.()
     await new Promise((resolve) => setTimeout(resolve, 0))
     tick?.()

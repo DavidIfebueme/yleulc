@@ -3,6 +3,8 @@ import type { ProtectionApp, ProtectionDashboard } from "../../../shared/protect
 
 const emptyDashboard: ProtectionDashboard = { apps: [] }
 
+const failureText = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause))
+
 export function ProtectionDashboard() {
   const [dashboard, setDashboard] = useState<ProtectionDashboard>(emptyDashboard)
   const [message, setMessage] = useState("")
@@ -34,7 +36,7 @@ export function ProtectionDashboard() {
         setDashboard(next)
         setMessage("")
       },
-      () => setMessage(app.label + " could not be relaunched")
+      (cause: unknown) => setMessage(app.label + " could not be relaunched: " + failureText(cause))
     )
   }
 
@@ -47,7 +49,7 @@ export function ProtectionDashboard() {
         setDashboard(next)
         setMessage("")
       },
-      () => setMessage("apps could not be protected")
+      (cause: unknown) => setMessage("apps could not be protected: " + failureText(cause))
     )
   }
 

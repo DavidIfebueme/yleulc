@@ -30,8 +30,18 @@ export function wrapperScriptPath(home: string): string {
 export function desktopFilePath(home: string): string {
   return join(yleulcAppsDir(home), yleulcDesktopFileName)
 }
-export function shimCandidates(input: { readonly home: string; readonly cwd: string; readonly override?: string }): ReadonlyArray<string> {
-  const base = [installedShimPath(input.home), join(input.cwd, "native", "capture-rewriter", yleulcShimFileName)]
+export function shimCandidates(input: {
+  readonly home: string
+  readonly cwd: string
+  readonly resourcesPath?: string
+  readonly override?: string
+}): ReadonlyArray<string> {
+  const base: Array<string> = [installedShimPath(input.home)]
+  const resourcesPath = input.resourcesPath
+  if (resourcesPath !== undefined && resourcesPath !== "") {
+    base.push(join(resourcesPath, "native", "capture-rewriter", yleulcShimFileName))
+  }
+  base.push(join(input.cwd, "native", "capture-rewriter", yleulcShimFileName))
   const override = input.override
   if (override !== undefined && override !== "") {
     return [override, ...base]
@@ -170,8 +180,8 @@ const findBraveLive = (): Effect.Effect<string | null, BraveWrapperError> =>
     }
     return null
   })
-const resolveShimLive = (home: string, cwd: string, override: string | undefined): string | null => {
-  const candidates = shimCandidates({ home, cwd, override })
+const resolveShimLive = (home: string, cwd: string, override: string | undefined, resourcesPath: string | undefined): string | null => {
+  const candidates = shimCandidates({ home, cwd, override, resourcesPath })
   return pickFirstExisting(candidates, (candidate) => existsSync(candidate))
 }
 const quitBraveLive = (timeoutMs: number): Effect.Effect<boolean, BraveWrapperError> =>
@@ -238,7 +248,7 @@ export class BraveWrapper extends Context.Service<BraveWrapper, BraveWrapperShap
         Effect.gen(function* () {
           const home = homedir()
           const cwd = process.cwd()
-          const shim = resolveShimLive(home, cwd, rewriterOverride)
+          const shim = resolveShimLive(home, cwd, rewriterOverride, process.resourcesPath)
           const brave = yield* findBraveLive()
           if (shim === null || brave === null) {
             return false
@@ -274,7 +284,7 @@ export class BraveWrapper extends Context.Service<BraveWrapper, BraveWrapperShap
         Effect.gen(function* () {
           const home = homedir()
           const cwd = process.cwd()
-          const shim = resolveShimLive(home, cwd, rewriterOverride)
+          const shim = resolveShimLive(home, cwd, rewriterOverride, process.resourcesPath)
           if (shim === null) {
             return { ok: false, wrapperPath: wrapperScriptPath(home), shimPath: installedShimPath(home), braveBin: null, reason: "shim-missing" }
           }

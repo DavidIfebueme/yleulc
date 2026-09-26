@@ -82,6 +82,34 @@ node "$SKILL_DIR/scripts/drive.mjs" shot "$RUN_DIR/artifacts/activity/panel.png"
 node "$SKILL_DIR/scripts/drive.mjs" click "Ask" > /dev/null
 node "$SKILL_DIR/scripts/drive.mjs" shot "$RUN_DIR/artifacts/listen/status.png" > /dev/null
 
+mkdir -p "$RUN_DIR/decoy"
+cp /usr/bin/sleep "$RUN_DIR/decoy/zoom"
+"$RUN_DIR/decoy/zoom" 600 &
+DECOY_PID=$!
+sleep 1
+decoy_before=$(kill -0 "$DECOY_PID" 2>/dev/null && echo yes || echo no)
+echo "decoy_before=$decoy_before" > "$RUN_DIR/artifacts/protection/failsafe.txt"
+
+node "$SKILL_DIR/scripts/drive.mjs" click "Protection" > /dev/null
+protection_body="$(node "$SKILL_DIR/scripts/drive.mjs" text)"
+echo "$protection_body" > "$RUN_DIR/artifacts/protection/panel.txt"
+echo "$protection_body" | grep -qi "brave" && b1=1 || b1=0
+record "protection lists brave" "$b1"
+
+relaunch_result="$(node "$SKILL_DIR/scripts/drive.mjs" eval 'window.yleulc.relaunchProtectedApp("zoom").then(() => "ok").catch((e) => "error:" + String(e))')"
+echo "relaunch_zoom=$relaunch_result" >> "$RUN_DIR/artifacts/protection/failsafe.txt"
+case "$relaunch_result" in
+  error:*) reason=1 ;;
+  *) reason=0 ;;
+esac
+record "relaunch reports a reason instead of failing silently" "$reason"
+
+sleep 2
+decoy_after=$(kill -0 "$DECOY_PID" 2>/dev/null && echo yes || echo no)
+echo "decoy_after=$decoy_after" >> "$RUN_DIR/artifacts/protection/failsafe.txt"
+record "relaunch signals nothing when it cannot succeed" "$([ "$decoy_after" = "yes" ] && echo 1 || echo 0)"
+kill "$DECOY_PID" 2>/dev/null
+
 curl -s "http://127.0.0.1:$MOCK_PORT/requests" > "$RUN_DIR/artifacts/mock-requests.json"
 grep -qi "chat/completions" "$RUN_DIR/artifacts/mock-requests.json" && m1=1 || m1=0
 record "provider request recorded by mock" "$m1"

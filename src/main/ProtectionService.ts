@@ -1,9 +1,9 @@
 import { Context, Data, Effect, Layer } from "effect"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readFileSync, readlinkSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { ProtectionApp, ProtectionDashboard } from "../shared/protectionIpc"
 import { rewriterLogPath } from "./BraveWrapper"
-import { WrapperRegistry, type WrapperAppId, type WrapperRegistryShape, isAppCmdline } from "./WrapperRegistry"
+import { WrapperRegistry, type WrapperAppId, type WrapperRegistryShape, isAppProcess } from "./WrapperRegistry"
 
 export class ProtectionError extends Data.TaggedError("ProtectionError")<{
   readonly reason: string
@@ -12,6 +12,7 @@ export class ProtectionError extends Data.TaggedError("ProtectionError")<{
 export interface ProtectionProcess {
   readonly cmdline: string
   readonly environment: string
+  readonly exePath: string | null
   readonly pid: number
 }
 
@@ -20,6 +21,15 @@ export interface ProtectionSystemShape {
   readonly listProcesses: () => Effect.Effect<ReadonlyArray<ProtectionProcess>, ProtectionError>
   readonly readRewriterLogTail: () => Effect.Effect<string, ProtectionError>
 }
+
+const readExePath = (pidText: string): Effect.Effect<string | null, never> =>
+  Effect.catch(
+    Effect.try({
+      try: () => readlinkSync(join("/proc", pidText, "exe")),
+      catch: () => new ProtectionError({ reason: "read-exe" })
+    }),
+    () => Effect.succeed(null)
+  )
 
 export class ProtectionSystem extends Context.Service<ProtectionSystem, ProtectionSystemShape>()("ProtectionSystem") {
   static readonly Live = Layer.succeed(ProtectionSystem, {
@@ -34,13 +44,17 @@ export class ProtectionSystem extends Context.Service<ProtectionSystem, Protecti
       }).pipe(
         Effect.flatMap((pids) =>
           Effect.forEach(pids, (pidText) =>
-            Effect.try({
-              try: () => ({
-                cmdline: readFileSync(join("/proc", pidText, "cmdline"), "utf8").split(String.fromCharCode(0)).join(" ").trim(),
-                environment: readFileSync(join("/proc", pidText, "environ"), "utf8"),
-                pid: Number(pidText)
-              }),
-              catch: () => new ProtectionError({ reason: "read-process" })
+            Effect.gen(function* () {
+              const base = yield* Effect.try({
+                try: () => ({
+                  cmdline: readFileSync(join("/proc", pidText, "cmdline"), "utf8").split(String.fromCharCode(0)).join(" ").trim(),
+                  environment: readFileSync(join("/proc", pidText, "environ"), "utf8"),
+                  pid: Number(pidText)
+                }),
+                catch: () => new ProtectionError({ reason: "read-process" })
+              })
+              const exePath = yield* readExePath(pidText)
+              return { ...base, exePath }
             }).pipe(Effect.catch(() => Effect.succeed(null)))
           )
         ),
@@ -94,7 +108,7 @@ const appState = (installed: boolean, processes: ReadonlyArray<ProtectionProcess
   if (processes.length > 0) {
     return "running unwrapped"
   }
-  return installed ? "running unwrapped" : "not installed"
+  return installed ? "not running" : "not installed"
 }
 
 const dashboard = (registry: WrapperRegistryShape, system: ProtectionSystemShape): Effect.Effect<ProtectionDashboard, ProtectionError> =>
@@ -104,7 +118,8 @@ const dashboard = (registry: WrapperRegistryShape, system: ProtectionSystemShape
     const apps = yield* Effect.forEach(registry.listApps(), (id) =>
       Effect.gen(function* () {
         const entry = registry.getEntry(id)
-        const matching = processes.filter((process) => isAppCmdline(entry, process.cmdline))
+        const targetBin = yield* Effect.catch(registry.findBinary(id), () => Effect.succeed(null))
+        const matching = targetBin === null ? [] : processes.filter((process) => isAppProcess(process, targetBin))
         const installed = matching.length > 0 || (yield* system.binaryExists(entry.binaries))
         return { id, label: entry.label, pids: matching.map((process) => process.pid), state: appState(installed, matching, log) }
       })

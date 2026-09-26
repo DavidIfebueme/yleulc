@@ -9,7 +9,7 @@ import {
   findHookEvidence,
   findRewriteEvidence,
   getWrapperEntry,
-  isAppCmdline,
+  isAppProcess,
   listWrapperApps,
   rewriterLogMarkers,
   selectAppPids,
@@ -18,8 +18,8 @@ import {
 } from "./WrapperRegistry"
 
 describe("listWrapperApps", () => {
-  it("covers chrome firefox zoom and discord", () => {
-    expect(listWrapperApps()).toEqual(["chrome", "firefox", "zoom", "discord"])
+  it("covers chrome firefox brave zoom and discord", () => {
+    expect(listWrapperApps()).toEqual(["chrome", "firefox", "brave", "zoom", "discord"])
   })
 })
 
@@ -46,53 +46,45 @@ describe("getWrapperEntry", () => {
   })
 })
 
-describe("isAppCmdline", () => {
-  it("matches chrome executables", () => {
-    const entry = getWrapperEntry("chrome")
-    expect(isAppCmdline(entry, "/usr/bin/google-chrome")).toBe(true)
-    expect(isAppCmdline(entry, "/opt/google/chrome/chrome --type=renderer")).toBe(true)
-    expect(isAppCmdline(entry, "chromium")).toBe(true)
-    expect(isAppCmdline(entry, "/usr/bin/chromium-browser")).toBe(true)
+describe("isAppProcess", () => {
+  it("matches by resolved executable path", () => {
+    expect(isAppProcess({ cmdline: "/opt/brave-bin/brave", exePath: "/opt/brave-bin/brave" }, "/opt/brave-bin/brave")).toBe(true)
+    expect(isAppProcess({ cmdline: "/opt/brave-bin/brave --type=renderer", exePath: "/opt/brave-bin/brave" }, "/opt/brave-bin/brave")).toBe(true)
   })
-  it("matches firefox executables", () => {
-    const entry = getWrapperEntry("firefox")
-    expect(isAppCmdline(entry, "/usr/bin/firefox")).toBe(true)
-    expect(isAppCmdline(entry, "/usr/lib/firefox/firefox-bin")).toBe(true)
-    expect(isAppCmdline(entry, "firefox-esr")).toBe(true)
+  it("does not match helper binaries that only share a name prefix", () => {
+    expect(isAppProcess({ cmdline: "/opt/brave-bin/chrome-sandbox", exePath: "/opt/brave-bin/chrome-sandbox" }, "/opt/brave-bin/brave")).toBe(false)
+    expect(isAppProcess({ cmdline: "/opt/brave-bin/chrome-management-service", exePath: "/opt/brave-bin/chrome-management-service" }, "/opt/brave-bin/brave")).toBe(false)
+    expect(isAppProcess({ cmdline: "/opt/brave-bin/chrome_crashpad_handler", exePath: "/opt/brave-bin/chrome_crashpad_handler" }, "/opt/brave-bin/brave")).toBe(false)
   })
-  it("matches zoom executables", () => {
-    const entry = getWrapperEntry("zoom")
-    expect(isAppCmdline(entry, "/opt/zoom/ZoomLauncher")).toBe(true)
-    expect(isAppCmdline(entry, "/opt/zoom/zoom")).toBe(true)
-    expect(isAppCmdline(entry, "zoom")).toBe(true)
+  it("does not match a process merely named like the target", () => {
+    expect(isAppProcess({ cmdline: "/tmp/decoy/firefox", exePath: "/tmp/decoy/firefox" }, "/usr/bin/firefox")).toBe(false)
   })
-  it("matches discord executables", () => {
-    const entry = getWrapperEntry("discord")
-    expect(isAppCmdline(entry, "/opt/discord/Discord")).toBe(true)
-    expect(isAppCmdline(entry, "discord")).toBe(true)
+  it("falls back to basename equality when the exe path is unreadable", () => {
+    expect(isAppProcess({ cmdline: "/usr/lib/firefox/firefox", exePath: null }, "/usr/bin/firefox")).toBe(true)
+    expect(isAppProcess({ cmdline: "/tmp/decoy/firefoxish", exePath: null }, "/usr/bin/firefox")).toBe(false)
+    expect(isAppProcess({ cmdline: "", exePath: null }, "/usr/bin/firefox")).toBe(false)
   })
-  it("rejects other executables", () => {
-    expect(isAppCmdline(getWrapperEntry("chrome"), "/usr/bin/firefox")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("firefox"), "/usr/bin/google-chrome")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("zoom"), "/opt/discord/Discord")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("discord"), "/opt/zoom/zoom")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("chrome"), "")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("chrome"), "/usr/bin/chrom")).toBe(false)
-    expect(isAppCmdline(getWrapperEntry("firefox"), "/usr/bin/firefoxish")).toBe(false)
+  it("treats an empty target as a non-match", () => {
+    expect(isAppProcess({ cmdline: "", exePath: null }, "")).toBe(false)
+    expect(isAppProcess({ cmdline: "/usr/bin/firefox", exePath: "/usr/bin/firefox" }, "")).toBe(false)
+    expect(isAppProcess({ cmdline: "/usr/bin/firefox", exePath: "" }, "/usr/bin/firefox")).toBe(true)
   })
 })
 
 describe("selectAppPids", () => {
-  it("keeps only matching processes", () => {
-    const pids = selectAppPids(getWrapperEntry("zoom"), [
-      { pid: 21, cmdline: "/opt/zoom/zoom" },
-      { pid: 22, cmdline: "/opt/discord/Discord" },
-      { pid: 23, cmdline: "/opt/zoom/ZoomLauncher --foo" }
-    ])
+  it("keeps only processes whose executable is the target", () => {
+    const pids = selectAppPids(
+      [
+        { cmdline: "/opt/zoom/zoom", exePath: "/opt/zoom/zoom", pid: 21 },
+        { cmdline: "/opt/discord/Discord", exePath: "/opt/discord/Discord", pid: 22 },
+        { cmdline: "/opt/zoom/zoom --foo", exePath: "/opt/zoom/zoom", pid: 23 }
+      ],
+      "/opt/zoom/zoom"
+    )
     expect(pids).toEqual([21, 23])
   })
   it("returns empty when nothing matches", () => {
-    expect(selectAppPids(getWrapperEntry("discord"), [{ pid: 7, cmdline: "/usr/bin/firefox" }])).toEqual([])
+    expect(selectAppPids([{ cmdline: "/usr/bin/firefox", exePath: "/usr/bin/firefox", pid: 7 }], "/opt/discord/Discord")).toEqual([])
   })
 })
 
@@ -191,13 +183,15 @@ describe("WrapperRegistry Test layer", () => {
       const registry = yield* WrapperRegistry
       const chrome = yield* registry.findBinary("chrome")
       const firefox = yield* registry.findBinary("firefox")
+      const brave = yield* registry.findBinary("brave")
       const zoom = yield* registry.findBinary("zoom")
       const discord = yield* registry.findBinary("discord")
-      return { chrome, firefox, zoom, discord }
+      return { brave, chrome, discord, firefox, zoom }
     })
     const result = await Effect.runPromise(Effect.provide(program, WrapperRegistry.Test))
     expect(result.chrome).toBe("/usr/bin/google-chrome")
     expect(result.firefox).toBe("/usr/bin/firefox")
+    expect(result.brave).toBe("/usr/bin/brave")
     expect(result.zoom).toBe("/opt/zoom/ZoomLauncher")
     expect(result.discord).toBe("/opt/discord/Discord")
   })
@@ -250,6 +244,6 @@ describe("WrapperRegistry Test layer", () => {
       return registry.listApps()
     })
     const apps = await Effect.runPromise(Effect.provide(program, WrapperRegistry.Live))
-    expect(apps).toEqual(["chrome", "firefox", "zoom", "discord"])
+    expect(apps).toEqual(["chrome", "firefox", "brave", "zoom", "discord"])
   })
 })

@@ -1,7 +1,7 @@
 import { Config, Context, Data, Effect, Layer, Option } from "effect"
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { spawn } from "node:child_process"
 import {
   installedShimPath,
@@ -14,7 +14,7 @@ import {
   yleulcShareDir
 } from "./BraveWrapper"
 
-export const wrapperAppIds = ["chrome", "firefox", "zoom", "discord"] as const
+export const wrapperAppIds = ["chrome", "firefox", "brave", "zoom", "discord"] as const
 export type WrapperAppId = (typeof wrapperAppIds)[number]
 export type WrapperQuitMethod = "sigterm-then-sigkill"
 export type WrapperVerificationStatus = "assumed" | "verified"
@@ -27,8 +27,6 @@ export interface WrapperAppEntry {
   readonly id: WrapperAppId
   readonly label: string
   readonly binaries: ReadonlyArray<string>
-  readonly matchBases: ReadonlyArray<string>
-  readonly matchPrefixes: ReadonlyArray<string>
   readonly quitMethod: WrapperQuitMethod
   readonly quitTimeoutMs: number
   readonly extraEnv: Readonly<Record<string, string>>
@@ -60,8 +58,6 @@ export const wrapperAppEntries: Record<WrapperAppId, WrapperAppEntry> = {
       "/usr/bin/chromium",
       "/usr/bin/chromium-browser"
     ],
-    matchBases: ["chrome", "google-chrome", "google-chrome-stable", "chromium", "chromium-browser"],
-    matchPrefixes: ["chrome-", "chromium-", "google-chrome-"],
     quitMethod: "sigterm-then-sigkill",
     quitTimeoutMs: 8000,
     extraEnv: { GDK_BACKEND: "x11" },
@@ -82,8 +78,6 @@ export const wrapperAppEntries: Record<WrapperAppId, WrapperAppEntry> = {
     id: "firefox",
     label: "Firefox",
     binaries: ["firefox", "firefox-esr", "/usr/bin/firefox", "/usr/bin/firefox-esr", "/opt/firefox/firefox", "/usr/lib/firefox/firefox"],
-    matchBases: ["firefox", "firefox-esr", "firefox-bin"],
-    matchPrefixes: ["firefox-"],
     quitMethod: "sigterm-then-sigkill",
     quitTimeoutMs: 8000,
     extraEnv: { MOZ_ENABLE_WAYLAND: "0", GDK_BACKEND: "x11" },
@@ -100,12 +94,30 @@ export const wrapperAppEntries: Record<WrapperAppId, WrapperAppEntry> = {
       guidance: "share from wrapped Firefox on an X11 session and require a hook-fired line for the Firefox PID before calling it verified"
     }
   },
+  brave: {
+    id: "brave",
+    label: "Brave",
+    binaries: ["brave", "brave-browser", "/opt/brave-bin/brave", "/usr/bin/brave", "/usr/bin/brave-browser"],
+    quitMethod: "sigterm-then-sigkill",
+    quitTimeoutMs: 8000,
+    extraEnv: { GDK_BACKEND: "x11" },
+    extraFlags: ["--ozone-platform-hint=x11", "--disable-features=WebRTCPipeWireCapturer"],
+    wrapperName: "yleulc-brave",
+    desktopFileName: "yleulc-brave.desktop",
+    icon: "brave-browser",
+    mimeType: browserMime,
+    portalCaptureDisabled: true,
+    capturePath: "x11 ozone with pipewire capturer disabled",
+    verification: {
+      status: "assumed",
+      basis: "flags mirror the X11 ozone capture path; no hook-fired line observed for Brave in the rewriter log",
+      guidance: "share from wrapped Brave on an X11 session and require a hook-fired line for the Brave PID before calling it verified"
+    }
+  },
   zoom: {
     id: "zoom",
     label: "Zoom",
     binaries: ["zoom", "zoomlinux", "/opt/zoom/ZoomLauncher", "/opt/zoom/zoom", "/usr/bin/zoom"],
-    matchBases: ["zoom", "zoomlinux", "ZoomLauncher"],
-    matchPrefixes: ["zoom-"],
     quitMethod: "sigterm-then-sigkill",
     quitTimeoutMs: 8000,
     extraEnv: { QT_QPA_PLATFORM: "xcb" },
@@ -126,8 +138,6 @@ export const wrapperAppEntries: Record<WrapperAppId, WrapperAppEntry> = {
     id: "discord",
     label: "Discord",
     binaries: ["discord", "Discord", "/opt/discord/Discord", "/usr/bin/discord", "/usr/bin/Discord", "/usr/share/discord/Discord"],
-    matchBases: ["Discord", "discord"],
-    matchPrefixes: ["Discord-", "discord-"],
     quitMethod: "sigterm-then-sigkill",
     quitTimeoutMs: 8000,
     extraEnv: { GDK_BACKEND: "x11" },
@@ -166,21 +176,35 @@ export function desktopFilePathFor(home: string, entry: WrapperAppEntry): string
   return join(yleulcAppsDir(home), entry.desktopFileName)
 }
 
-export function isAppCmdline(entry: WrapperAppEntry, cmdline: string): boolean {
-  const first = cmdline.split(" ")[0] ?? ""
-  const parts = first.split("/")
-  const base = parts.pop() ?? ""
-  if (entry.matchBases.includes(base)) {
-    return true
+export interface ProcessIdentity {
+  readonly cmdline: string
+  readonly exePath: string | null
+}
+
+export function canonicalExecutablePath(path: string): string {
+  return existsSync(path) ? realpathSync(path) : path
+}
+
+export function isAppProcess(process: ProcessIdentity, targetBin: string): boolean {
+  if (targetBin.length === 0) {
+    return false
   }
-  return entry.matchPrefixes.some((prefix) => base.startsWith(prefix))
+  const target = canonicalExecutablePath(targetBin)
+  if (process.exePath !== null && process.exePath.length > 0) {
+    return canonicalExecutablePath(process.exePath) === target
+  }
+  const executable = process.cmdline.split(" ")[0] ?? ""
+  if (executable.length === 0) {
+    return false
+  }
+  return basename(executable) === basename(target)
 }
 
 export function selectAppPids(
-  entry: WrapperAppEntry,
-  entries: ReadonlyArray<{ readonly pid: number; readonly cmdline: string }>
+  processes: ReadonlyArray<ProcessIdentity & { readonly pid: number }>,
+  targetBin: string
 ): ReadonlyArray<number> {
-  return entries.filter((candidate) => isAppCmdline(entry, candidate.cmdline)).map((candidate) => candidate.pid)
+  return processes.filter((process) => isAppProcess(process, targetBin)).map((process) => process.pid)
 }
 
 export function buildAppWrapperScript(input: {
@@ -273,6 +297,7 @@ const nullSeparator = String.fromCharCode(0)
 const stubBinaries: Record<WrapperAppId, string> = {
   chrome: "/usr/bin/google-chrome",
   firefox: "/usr/bin/firefox",
+  brave: "/usr/bin/brave",
   zoom: "/opt/zoom/ZoomLauncher",
   discord: "/opt/discord/Discord"
 }
@@ -290,7 +315,18 @@ const readProcCmdline = (pidText: string): Effect.Effect<string | null, never> =
     () => Effect.succeed(null)
   )
 
-const listAppPidsLive = (entry: WrapperAppEntry): Effect.Effect<ReadonlyArray<number>, WrapperRegistryError> =>
+const readProcExePath = (pidText: string): Effect.Effect<string | null, never> =>
+  Effect.catch(
+    Effect.try({
+      try: () => readlinkSync(join("/proc", pidText, "exe")),
+      catch: () => new WrapperRegistryError({ reason: "read-exe" })
+    }),
+    () => Effect.succeed(null)
+  )
+
+const listAppProcessesLive = (
+  targetBin: string
+): Effect.Effect<ReadonlyArray<ProcessIdentity & { readonly pid: number }>, WrapperRegistryError> =>
   Effect.gen(function* () {
     const names = yield* Effect.try({
       try: () => readdirSync("/proc"),
@@ -298,19 +334,22 @@ const listAppPidsLive = (entry: WrapperAppEntry): Effect.Effect<ReadonlyArray<nu
     })
     const numeric = names.filter((name) => /^\d+$/.test(name))
     const maybe = yield* Effect.forEach(numeric, (pidText) =>
-      Effect.map(readProcCmdline(pidText), (raw) => {
+      Effect.gen(function* () {
+        const raw = yield* readProcCmdline(pidText)
         if (raw === null) {
           return null
         }
-        const normalized = raw.split(nullSeparator).join(" ").trim()
-        if (!isAppCmdline(entry, normalized)) {
-          return null
-        }
-        return Number(pidText)
+        const cmdline = raw.split(nullSeparator).join(" ").trim()
+        const exePath = yield* readProcExePath(pidText)
+        const candidate = { cmdline, exePath, pid: Number(pidText) }
+        return isAppProcess(candidate, targetBin) ? candidate : null
       })
     )
-    return maybe.filter((value): value is number => value !== null)
+    return maybe.filter((value): value is ProcessIdentity & { readonly pid: number } => value !== null)
   })
+
+const listAppPidsLive = (targetBin: string): Effect.Effect<ReadonlyArray<number>, WrapperRegistryError> =>
+  Effect.map(listAppProcessesLive(targetBin), (processes) => processes.map((process) => process.pid))
 
 const findBinaryLive = (entry: WrapperAppEntry): Effect.Effect<string | null, WrapperRegistryError> =>
   Effect.sync(() => {
@@ -336,14 +375,18 @@ const findBinaryLive = (entry: WrapperAppEntry): Effect.Effect<string | null, Wr
     return null
   })
 
-const resolveShimLive = (home: string, cwd: string, override: string | undefined): string | null => {
-  const candidates = shimCandidates({ home, cwd, override })
+const resolveShimLive = (home: string, cwd: string, override: string | undefined, resourcesPath: string | undefined): string | null => {
+  const candidates = shimCandidates({ home, cwd, override, resourcesPath })
   return pickFirstExisting(candidates, (candidate) => existsSync(candidate))
 }
 
 const quitAppLive = (entry: WrapperAppEntry, timeoutMs: number): Effect.Effect<boolean, WrapperRegistryError> =>
   Effect.gen(function* () {
-    const initial = yield* listAppPidsLive(entry)
+    const target = yield* findBinaryLive(entry)
+    if (target === null) {
+      return true
+    }
+    const initial = yield* listAppPidsLive(target)
     if (initial.length === 0) {
       return true
     }
@@ -363,13 +406,13 @@ const quitAppLive = (entry: WrapperAppEntry, timeoutMs: number): Effect.Effect<b
     )
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline) {
-      const still = yield* listAppPidsLive(entry)
+      const still = yield* listAppPidsLive(target)
       if (still.length === 0) {
         return true
       }
       yield* sleepMs(250)
     }
-    const remaining = yield* listAppPidsLive(entry)
+    const remaining = yield* listAppPidsLive(target)
     yield* Effect.forEach(
       remaining,
       (pid) =>
@@ -385,7 +428,7 @@ const quitAppLive = (entry: WrapperAppEntry, timeoutMs: number): Effect.Effect<b
       { discard: true }
     )
     yield* sleepMs(500)
-    const after = yield* listAppPidsLive(entry)
+    const after = yield* listAppPidsLive(target)
     return after.length === 0
   })
 
@@ -393,12 +436,13 @@ const launchWrappedLive = (
   entry: WrapperAppEntry,
   overlayClass: string,
   rewriterOverride: string | undefined,
-  logOverride: string | undefined
+  logOverride: string | undefined,
+  resourcesPath: string | undefined
 ): Effect.Effect<boolean, WrapperRegistryError> =>
   Effect.gen(function* () {
     const home = homedir()
     const cwd = process.cwd()
-    const shim = resolveShimLive(home, cwd, rewriterOverride)
+    const shim = resolveShimLive(home, cwd, rewriterOverride, resourcesPath)
     const target = yield* findBinaryLive(entry)
     if (shim === null || target === null) {
       return false
@@ -439,12 +483,13 @@ const installEntryLive = (
   entry: WrapperAppEntry,
   overlayClass: string,
   rewriterOverride: string | undefined,
-  logOverride: string | undefined
+  logOverride: string | undefined,
+  resourcesPath: string | undefined
 ): Effect.Effect<WrapperInstallResult, WrapperRegistryError> =>
   Effect.gen(function* () {
     const home = homedir()
     const cwd = process.cwd()
-    const shim = resolveShimLive(home, cwd, rewriterOverride)
+    const shim = resolveShimLive(home, cwd, rewriterOverride, resourcesPath)
     const wrapperPath = wrapperScriptPathFor(home, entry)
     if (shim === null) {
       return { ok: false, wrapperPath, shimPath: installedShimPath(home), targetBin: null, reason: "shim-missing" }
@@ -493,6 +538,32 @@ const installEntryLive = (
     return { ok: true, wrapperPath, shimPath: installed, targetBin: target }
   })
 
+const startWrappedLive = (
+  entry: WrapperAppEntry,
+  overlayClass: string,
+  rewriterOverride: string | undefined,
+  logOverride: string | undefined,
+  resourcesPath: string | undefined
+): Effect.Effect<boolean, WrapperRegistryError> =>
+  Effect.gen(function* () {
+    const home = homedir()
+    const cwd = process.cwd()
+    const shim = resolveShimLive(home, cwd, rewriterOverride, resourcesPath)
+    if (shim === null) {
+      return yield* Effect.fail(new WrapperRegistryError({ reason: "shim-missing" }))
+    }
+    const target = yield* findBinaryLive(entry)
+    if (target === null) {
+      return yield* Effect.fail(new WrapperRegistryError({ reason: "binary-missing" }))
+    }
+    const installed = yield* installEntryLive(entry, overlayClass, rewriterOverride, logOverride, resourcesPath)
+    if (!installed.ok) {
+      return yield* Effect.fail(new WrapperRegistryError({ reason: installed.reason ?? "install-failed" }))
+    }
+    yield* quitAppLive(entry, entry.quitTimeoutMs)
+    return yield* launchWrappedLive(entry, overlayClass, rewriterOverride, logOverride, resourcesPath)
+  })
+
 const readRewriterLogLive = (logOverride: string | undefined): Effect.Effect<string, WrapperRegistryError> =>
   Effect.catch(
     Effect.try({
@@ -511,23 +582,28 @@ export class WrapperRegistry extends Context.Service<WrapperRegistry, WrapperReg
       const logOverrideOption = yield* Config.option(Config.String("YLEULC_REWRITER_LOG"))
       const rewriterOverride = Option.getOrUndefined(rewriterOverrideOption)
       const logOverride = Option.getOrUndefined(logOverrideOption)
+      const resourcesPath = process.resourcesPath
       const listApps = (): ReadonlyArray<WrapperAppId> => listWrapperApps()
       const getEntry = (id: WrapperAppId): WrapperAppEntry => getWrapperEntry(id)
       const findBinary = (id: WrapperAppId): Effect.Effect<string | null, WrapperRegistryError> => findBinaryLive(getWrapperEntry(id))
       const isRunning = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
-        Effect.map(listAppPidsLive(getWrapperEntry(id)), (pids) => pids.length > 0)
+        Effect.gen(function* () {
+          const entry = getWrapperEntry(id)
+          const target = yield* findBinaryLive(entry)
+          if (target === null) {
+            return false
+          }
+          const pids = yield* listAppPidsLive(target)
+          return pids.length > 0
+        })
       const quitApp = (id: WrapperAppId, timeoutMs?: number): Effect.Effect<boolean, WrapperRegistryError> =>
         quitAppLive(getWrapperEntry(id), timeoutMs ?? getWrapperEntry(id).quitTimeoutMs)
       const launchWrapped = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
-        launchWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+        launchWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride, resourcesPath)
       const installEntry = (id: WrapperAppId): Effect.Effect<WrapperInstallResult, WrapperRegistryError> =>
-        installEntryLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
+        installEntryLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride, resourcesPath)
       const startWrapped = (id: WrapperAppId): Effect.Effect<boolean, WrapperRegistryError> =>
-        Effect.gen(function* () {
-          yield* installEntryLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
-          yield* quitAppLive(getWrapperEntry(id), getWrapperEntry(id).quitTimeoutMs)
-          return yield* launchWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride)
-        })
+        startWrappedLive(getWrapperEntry(id), overlayClass, rewriterOverride, logOverride, resourcesPath)
       const readRewriterLog = (): Effect.Effect<string, WrapperRegistryError> => readRewriterLogLive(logOverride)
       const checkHookEvidence = (pid: number): Effect.Effect<boolean, WrapperRegistryError> =>
         Effect.map(readRewriterLogLive(logOverride), (logText) => findHookEvidence(logText, pid))
