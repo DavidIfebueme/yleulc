@@ -11,6 +11,24 @@ MOCK_PORT="${MOCK_PORT:-8787}"
 MOCK_SCENARIO="${MOCK_SCENARIO:-default}"
 TRACE="${TRACE:-deepgram}"
 
+if ss -ltn 2>/dev/null | grep -q ":$CDP_PORT "; then
+  owner="$(ss -ltnp 2>/dev/null | grep ":$CDP_PORT " | head -n 1)"
+  echo "refusing to start: port $CDP_PORT is already in use ($owner)" >&2
+  echo "another verifier or a stale app owns it; stop it or set CDP_PORT" >&2
+  exit 1
+fi
+
+if [ -e "/tmp/.X${DISPLAY_NUM}-lock" ]; then
+  echo "refusing to start: display :$DISPLAY_NUM is already in use" >&2
+  echo "stop the process holding /tmp/.X${DISPLAY_NUM}-lock or set DISPLAY_NUM" >&2
+  exit 1
+fi
+
+if ss -ltn 2>/dev/null | grep -q ":$MOCK_PORT "; then
+  echo "refusing to start: mock port $MOCK_PORT is already in use" >&2
+  exit 1
+fi
+
 mkdir -p "$RUN_DIR/home/.config/yleulc" "$RUN_DIR/artifacts"
 
 cat > "$RUN_DIR/home/settings.json" <<JSON
