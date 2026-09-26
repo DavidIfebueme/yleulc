@@ -6,7 +6,7 @@ interface AssistSubmitBarProps {
 
 export function AssistSubmitBar(props: AssistSubmitBarProps) {
   return (
-    <div className="mt-2 flex min-w-0 items-center gap-2">
+    <div className="mt-1 flex min-w-0 items-center gap-2">
       <button
         type="button"
         onClick={props.onAssist}

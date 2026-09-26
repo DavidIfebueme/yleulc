@@ -66,4 +66,11 @@ describe("OverlayPanel", () => {
     expect(markup).toContain('class="ask-composer"')
     expect(markup).toContain('class="ask-action-strip"')
   })
+
+  it("keeps tell me more and copy actions in the empty state", () => {
+    const markup = renderToStaticMarkup(<OverlayPanel />)
+    expect(markup).toContain("Tell Me More")
+    expect(markup).toContain("Copy")
+    expect(markup).toContain("Ask for the next answer, a recap, or help with what is on screen.")
+  })
 })
