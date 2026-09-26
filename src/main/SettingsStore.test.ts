@@ -1,5 +1,5 @@
 import { ConfigProvider, Deferred, Effect, Fiber, Layer, Ref } from "effect"
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
@@ -9,7 +9,8 @@ import {
   makeFileSettingsStoreLayer,
   makeSettingsStoreTestLayer,
   SettingsStoreError,
-  SettingsStore
+  SettingsStore,
+  type SettingsSnapshot
 } from "./SettingsStore"
 
 describe("SettingsStore", () => {
@@ -119,6 +120,34 @@ describe("SettingsStore", () => {
     expect(outcome.stealth.autoHideOnPortalScreencast).toBe(false)
     expect(outcome.modesPrompts.systemPrompt).toBe("summarize actions")
     expect(outcome.afterReset).toEqual(defaultSettingsSnapshot)
+  })
+  it("keeps existing settings when the persisted file predates the listen field", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))
+    const path = join(directory, "settings.json")
+    const legacy: Omit<SettingsSnapshot, "listen"> = {
+      keybinds: { ...defaultSettingsSnapshot.keybinds },
+      modesPrompts: {
+        ...defaultSettingsSnapshot.modesPrompts,
+        defaultModel: "deepseek-flash",
+        defaultProviderId: "deepseek"
+      },
+      stealth: { ...defaultSettingsSnapshot.stealth },
+      transcriptionEngine: "local"
+    }
+    await writeFile(path, JSON.stringify(legacy), "utf8")
+    const restored = await Effect.runPromise(
+      Effect.provide(
+        Effect.gen(function* () {
+          const store = yield* SettingsStore
+          return yield* store.getSnapshot()
+        }),
+        makeFileSettingsStoreLayer(path, defaultSettingsSnapshot)
+      )
+    )
+    expect(restored.modesPrompts.defaultModel).toBe("deepseek-flash")
+    expect(restored.modesPrompts.defaultProviderId).toBe("deepseek")
+    expect(restored.listen).toEqual({ autoAnswer: false })
+    await rm(directory, { force: true, recursive: true })
   })
   it("persists prompt modes and the active prompt mode to a temporary file", async () => {
     const directory = await mkdtemp(join(tmpdir(), "yleulc-settings-"))

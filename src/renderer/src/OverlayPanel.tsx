@@ -120,6 +120,7 @@ export function OverlayPanel() {
           ) : (
             <AskPanel
               activePromptModeId={settings.modesPrompts.activePromptModeId}
+              autoAnswerEnabled={settings.listen.autoAnswer}
               initialMode={settings.modesPrompts.defaultMode}
               keybinds={settings.keybinds}
               settingsSaveError={settingsSaveError}

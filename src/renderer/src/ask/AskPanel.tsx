@@ -30,12 +30,14 @@ import { isScreenshotBridgeAvailable, requestFullscreenCapture } from "../captur
 import { ScreenshotTray } from "../capture/ScreenshotTray"
 import { ListenPanel } from "../listen/ListenPanel"
 import { ListenStatusPill } from "../listen/ListenStatusPill"
+import { useListenSession } from "../listen/useListenSession"
 import { registerOverlayHotkeys } from "../overlay/OverlayHotkeys"
 import { TranscriptToggle } from "../transcript/TranscriptToggle"
 import { initialOverlayState } from "../../../shared/initialOverlayState"
 
 interface AskPanelProps {
   readonly activePromptModeId: string
+  readonly autoAnswerEnabled: boolean
   readonly initialMode: "ask" | "listen"
   readonly keybinds: KeybindMap
   readonly onActivePromptModeChange: (modeId: string) => void
@@ -45,7 +47,6 @@ interface AskPanelProps {
 }
 
 export function AskPanel(props: AskPanelProps) {
-  const [listening, setListening] = useState(() => initialOverlayState(props.initialMode).listening)
   const [audioOn, setAudioOn] = useState(true)
   const [listenSeconds, setListenSeconds] = useState(0)
   const [transcriptOpen, setTranscriptOpen] = useState(() => initialOverlayState(props.initialMode).transcriptOpen)
@@ -57,9 +58,12 @@ export function AskPanel(props: AskPanelProps) {
   const [areaSelecting, setAreaSelecting] = useState(false)
   const [smartMode, setSmartMode] = useState(false)
   const [activePromptModeId, setActivePromptModeId] = useState(props.activePromptModeId)
-  const [transcript, setTranscript] = useState<ReadonlyArray<ListenTranscriptEntry>>([])
   const attachCounter = useRef(0)
   const stream = useAskStream()
+  const session = useListenSession({
+    autoAnswerEnabled: props.autoAnswerEnabled,
+    onEntriesChange: props.onTranscriptChange
+  })
 
   const askWithMode = (question: string, images = attachmentImages(attachments)): void => {
     stream.ask(question, images, promptForSmartMode(smartMode), activePromptModeId)
@@ -71,7 +75,7 @@ export function AskPanel(props: AskPanelProps) {
 
   const getAnswerFromScreen = (): void => {
     if (isAskBridgeAvailable()) {
-      stream.assist(transcript, promptForSmartMode(smartMode), activePromptModeId)
+      stream.assist(session.entries, promptForSmartMode(smartMode), activePromptModeId)
       return
     }
     if (!isScreenshotBridgeAvailable()) {
@@ -89,10 +93,10 @@ export function AskPanel(props: AskPanelProps) {
     )
   }
 
-  useEffect(() => subscribeAssistHotkey(getAnswerFromScreen), [activePromptModeId, smartMode, transcript])
+  useEffect(() => subscribeAssistHotkey(getAnswerFromScreen), [activePromptModeId, smartMode, session.entries])
 
   useEffect(() => {
-    if (listening === false) {
+    if (session.running === false) {
       return
     }
     const timerId = window.setInterval(() => {
@@ -101,7 +105,7 @@ export function AskPanel(props: AskPanelProps) {
     return () => {
       window.clearInterval(timerId)
     }
-  }, [listening])
+  }, [session.running])
 
   const submitDraft = (): void => {
     const trimmed = draft.trim()
@@ -131,7 +135,11 @@ export function AskPanel(props: AskPanelProps) {
         }
       },
       onToggleListen: () => {
-        setListening((value) => !value)
+        if (session.running) {
+          session.stopSession()
+          return
+        }
+        session.startSession()
       },
       onToggleTranscript: () => {
         setTranscriptOpen((value) => !value)
@@ -219,14 +227,17 @@ export function AskPanel(props: AskPanelProps) {
     <>
     <div className="ask-panel-shell text-white" data-overlay-panel="ask">
       <ListenStatusPill
-        listening={listening}
+        running={session.running}
         audioOn={audioOn}
         listenSeconds={listenSeconds}
         onToggleAudio={() => {
           setAudioOn((value) => !value)
         }}
         onEndListen={() => {
-          setListening(false)
+          session.stopSession()
+        }}
+        onResume={() => {
+          session.startSession()
         }}
         onHideOverlay={() => {
           setHidden(true)
@@ -252,10 +263,14 @@ export function AskPanel(props: AskPanelProps) {
       <div className="overlay-ask-content" data-scroll-region="ask">
       {transcriptOpen ? (
         <ListenPanel
-          onTranscriptChange={(entries) => {
-            setTranscript(entries)
-            props.onTranscriptChange?.(entries)
-          }}
+          answers={session.answers}
+          entries={session.entries}
+          engineError={session.engineError}
+          onDismissEngineError={session.dismissEngineError}
+          onRetryAnswer={session.retryAnswer}
+          onStopAnswer={session.stopAnswer}
+          running={session.running}
+          systemAudio={session.systemAudio}
         />
       ) : (
         <>

@@ -36,8 +36,12 @@ export function SettingsDashboard(props: SettingsDashboardProps) {
   return (
     <>
       <SettingsPanel
+        autoAnswer={props.settings.listen.autoAnswer}
         keybinds={props.settings.keybinds}
         modesPrompts={props.settings.modesPrompts}
+        onAutoAnswerChange={(autoAnswer) => {
+          save((snapshot) => ({ ...snapshot, listen: { ...snapshot.listen, autoAnswer } }))
+        }}
         onKeybindRebind={(action, combo) => {
           if (!canRebindKeybind(settingsDraft.current.current().keybinds, action, combo)) {
             setKeybindError("That shortcut is already assigned to another action.")

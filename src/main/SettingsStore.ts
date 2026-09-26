@@ -12,13 +12,14 @@ import {
   TranscriptionEngineKindSchema,
   defaultSettingsSnapshot,
   isValidSettingsSnapshot,
+  type ListenSettings,
   type ModesPromptsSettings,
   type SettingsSnapshot,
   type StealthSettings,
   type TranscriptionEngineKind
 } from "../shared/settingsIpc"
 
-export type { ModesPromptsSettings, SettingsSnapshot, StealthSettings, TranscriptionEngineKind }
+export type { ListenSettings, ModesPromptsSettings, SettingsSnapshot, StealthSettings, TranscriptionEngineKind }
 export { defaultSettingsSnapshot }
 
 export class SettingsStoreError extends Data.TaggedError("SettingsStoreError")<{
@@ -35,8 +36,13 @@ export const defaultModesPromptsSettings: ModesPromptsSettings = {
   ...defaultSettingsSnapshot.modesPrompts
 }
 
+export const defaultListenSettings: ListenSettings = {
+  ...defaultSettingsSnapshot.listen
+}
+
 export interface SettingsStoreShape {
   readonly getKeybinds: () => Effect.Effect<KeybindMap, never>
+  readonly getListen: () => Effect.Effect<ListenSettings, never>
   readonly getModesPrompts: () => Effect.Effect<ModesPromptsSettings, never>
   readonly getSnapshot: () => Effect.Effect<SettingsSnapshot, never>
   readonly getStealth: () => Effect.Effect<StealthSettings, never>
@@ -44,6 +50,7 @@ export interface SettingsStoreShape {
   readonly reset: () => Effect.Effect<void, SettingsStoreError>
   readonly setSnapshot: (value: SettingsSnapshot) => Effect.Effect<void, SettingsStoreError>
   readonly setKeybind: (action: KeybindAction, combo: string) => Effect.Effect<void, SettingsStoreError>
+  readonly setListen: (value: ListenSettings) => Effect.Effect<void, SettingsStoreError>
   readonly setModesPrompts: (value: ModesPromptsSettings) => Effect.Effect<void, SettingsStoreError>
   readonly setStealth: (value: StealthSettings) => Effect.Effect<void, SettingsStoreError>
   readonly setTranscriptionEngine: (value: TranscriptionEngineKind) => Effect.Effect<void, SettingsStoreError>
@@ -71,6 +78,7 @@ function makeSettingsStore(
     )
   return {
     getKeybinds: () => Effect.map(Ref.get(state), (snapshot) => snapshot.keybinds),
+    getListen: () => Effect.map(Ref.get(state), (snapshot) => snapshot.listen),
     getModesPrompts: () => Effect.map(Ref.get(state), (snapshot) => snapshot.modesPrompts),
     getSnapshot: () => Ref.get(state),
     getStealth: () => Effect.map(Ref.get(state), (snapshot) => snapshot.stealth),
@@ -79,6 +87,7 @@ function makeSettingsStore(
     setSnapshot,
     setKeybind: (action, combo) =>
       updateSnapshot((snapshot) => ({ ...snapshot, keybinds: { ...snapshot.keybinds, [action]: combo } })),
+    setListen: (value) => updateSnapshot((snapshot) => ({ ...snapshot, listen: value })),
     setModesPrompts: (value) => updateSnapshot((snapshot) => ({ ...snapshot, modesPrompts: value })),
     setStealth: (value) => updateSnapshot((snapshot) => ({ ...snapshot, stealth: value })),
     setTranscriptionEngine: (value) => updateSnapshot((snapshot) => ({ ...snapshot, transcriptionEngine: value }))
@@ -170,6 +179,7 @@ const readLiveSnapshot = Effect.gen(function* () {
     Config.String("YLEULC_KEYBIND_TOGGLE_VISIBILITY"),
     defaultKeybinds.toggleVisibility
   )
+  const autoAnswer = yield* Config.withDefault(Config.Boolean("YLEULC_AUTO_ANSWER"), false)
   const autoHideOnPortalScreencast = yield* Config.withDefault(Config.Boolean("YLEULC_STEALTH_AUTO_HIDE"), true)
   const showSingleWindowGuidance = yield* Config.withDefault(
     Config.Boolean("YLEULC_STEALTH_SINGLE_WINDOW_HINT"),
@@ -193,6 +203,7 @@ const readLiveSnapshot = Effect.gen(function* () {
       toggleTranscript,
       toggleVisibility
     },
+    listen: { autoAnswer },
     modesPrompts: {
       ...defaultModesPromptsSettings,
       defaultMode,
@@ -220,6 +231,7 @@ export class SettingsStore extends Context.Service<SettingsStore, SettingsStoreS
     Effect.gen(function* () {
       const initial: SettingsSnapshot = {
         keybinds: { ...defaultKeybinds },
+        listen: { ...defaultListenSettings },
         modesPrompts: { ...defaultModesPromptsSettings },
         stealth: { ...defaultStealthSettings },
         transcriptionEngine: "local"

@@ -131,10 +131,13 @@ describe("isAutoAnswerIntent", () => {
     expect(isAutoAnswerIntent("   ")).toBe(false)
   })
   it("never answers interim or empty entries", () => {
-    expect(shouldAutoAnswer({ ...toListenEntry(micQuestion), interim: true })).toBe(false)
-    expect(shouldAutoAnswer({ ...toListenEntry(micQuestion), text: "  " })).toBe(false)
-    expect(shouldAutoAnswer(toListenEntry(micQuestion))).toBe(true)
-    expect(shouldAutoAnswer(toListenEntry(systemStatement))).toBe(false)
+    expect(shouldAutoAnswer({ ...toListenEntry(micQuestion), interim: true }, true)).toBe(false)
+    expect(shouldAutoAnswer({ ...toListenEntry(micQuestion), text: "  " }, true)).toBe(false)
+    expect(shouldAutoAnswer(toListenEntry(micQuestion), true)).toBe(true)
+    expect(shouldAutoAnswer(toListenEntry(systemStatement), true)).toBe(false)
+  })
+  it("stays silent for every entry while auto-answer is disabled", () => {
+    expect(shouldAutoAnswer(toListenEntry(micQuestion), false)).toBe(false)
   })
 })
 
@@ -230,7 +233,7 @@ describe("ListenSession auto-answer", () => {
         Effect.gen(function* () {
           const session = yield* ListenSession
           return yield* Stream.runCollect(
-            session.streamAutoAnswer(toListenEntry(micQuestion), "listen-seg-001")
+            session.streamAutoAnswer(toListenEntry(micQuestion), "listen-seg-001", true)
           )
         }),
         ListenSession.Test
@@ -248,10 +251,10 @@ describe("ListenSession auto-answer", () => {
         Effect.gen(function* () {
           const session = yield* ListenSession
           const statement = yield* Stream.runCollect(
-            session.streamAutoAnswer(toListenEntry(systemStatement), "listen-seg-002")
+            session.streamAutoAnswer(toListenEntry(systemStatement), "listen-seg-002", true)
           )
           const interim = yield* Stream.runCollect(
-            session.streamAutoAnswer(toListenEntry(micInterim), "listen-seg-003")
+            session.streamAutoAnswer(toListenEntry(micInterim), "listen-seg-003", true)
           )
           return { interim: Array.from(interim), statement: Array.from(statement) }
         }),
@@ -266,7 +269,7 @@ describe("ListenSession auto-answer", () => {
       Effect.provide(
         Effect.gen(function* () {
           const session = yield* ListenSession
-          return yield* Stream.runCollect(session.streamAnswers(Stream.fromIterable(fixtureInputs)))
+          return yield* Stream.runCollect(session.streamAnswers(Stream.fromIterable(fixtureInputs), true))
         }),
         scriptedSessionLayer([
           { _tag: "text-delta", delta: "Lead with the conclusion." },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import type { AskEvent } from "../../../shared/askIpc"
 import {
@@ -41,11 +41,14 @@ export interface UseListenSessionResult {
   readonly entries: ReadonlyArray<ListenTranscriptEntry>
   readonly retryAnswer: (requestId: string) => void
   readonly running: boolean
+  readonly startSession: () => void
   readonly stopAnswer: (requestId: string) => void
+  readonly stopSession: () => void
   readonly systemAudio: SystemAudioSupport
 }
 
 export interface UseListenSessionOptions {
+  readonly autoAnswerEnabled: boolean
   readonly onEntriesChange?: (entries: ReadonlyArray<ListenTranscriptEntry>) => void
 }
 
@@ -118,12 +121,20 @@ function startAnswer(entry: ListenTranscriptEntry, setAnswers: SetListenAnswers)
   )
 }
 
-export function useListenSession(options?: UseListenSessionOptions): UseListenSessionResult {
+export function useListenSession(options: UseListenSessionOptions): UseListenSessionResult {
   const [entries, setEntries] = useState<ReadonlyArray<ListenTranscriptEntry>>([])
   const [answers, setAnswers] = useState<ReadonlyArray<ListenAutoAnswer>>([])
   const [engineError, setEngineError] = useState<string | undefined>(undefined)
-  const [running, setRunning] = useState(false)
+  const [sessionActive, setSessionActive] = useState(true)
+  const [statusRunning, setStatusRunning] = useState(false)
   const [systemAudio, setSystemAudio] = useState<SystemAudioSupport>("unsupported")
+  const autoAnswerRef = useRef(options.autoAnswerEnabled)
+
+  const running = sessionActive && statusRunning
+
+  useEffect(() => {
+    autoAnswerRef.current = options.autoAnswerEnabled
+  }, [options.autoAnswerEnabled])
 
   useEffect(
     () =>
@@ -134,6 +145,9 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
   )
 
   useEffect(() => {
+    if (!sessionActive) {
+      return
+    }
     if (!isListenBridgeAvailable()) {
       setEngineError("listen bridge unavailable")
       return
@@ -141,16 +155,17 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
     const unsubscribe = subscribeListenEvents((event) => {
       if (event._tag === "segment") {
         setEntries((previous) => appendListenEntry(previous, event.entry))
-        if (shouldAutoAnswer(event.entry)) {
+        if (shouldAutoAnswer(event.entry, autoAnswerRef.current)) {
           startAnswer(event.entry, setAnswers)
         }
         return
       }
       if (event._tag === "error") {
         setEngineError(event.message)
+        setStatusRunning(false)
         return
       }
-      setRunning(event.state === "started")
+      setStatusRunning(event.state === "started")
       setSystemAudio(event.systemAudio)
     })
     void startListenSession({ sessionId: listenSessionId }).then(
@@ -163,10 +178,10 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
       stopListenSession({ sessionId: listenSessionId })
       unsubscribe()
     }
-  }, [])
+  }, [sessionActive])
 
   useEffect(() => {
-    const notify = options?.onEntriesChange
+    const notify = options.onEntriesChange
     if (notify !== undefined) {
       notify(entries)
     }
@@ -205,9 +220,28 @@ export function useListenSession(options?: UseListenSessionOptions): UseListenSe
     )
   }
 
+  const startSession = (): void => {
+    setSessionActive(true)
+  }
+
+  const stopSession = (): void => {
+    setSessionActive(false)
+  }
+
   const dismissEngineError = (): void => {
     setEngineError(undefined)
   }
 
-  return { answers, dismissEngineError, engineError, entries, retryAnswer, running, stopAnswer, systemAudio }
+  return {
+    answers,
+    dismissEngineError,
+    engineError,
+    entries,
+    retryAnswer,
+    running,
+    startSession,
+    stopAnswer,
+    stopSession,
+    systemAudio
+  }
 }

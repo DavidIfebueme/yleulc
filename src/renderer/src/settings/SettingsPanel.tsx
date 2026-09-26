@@ -6,8 +6,10 @@ import type { ModesPromptsProviderOption, ModesPromptsValue } from "./ModesPromp
 import { ProviderKeysTable } from "./ProviderKeysTable"
 
 interface SettingsPanelProps {
+  readonly autoAnswer: boolean
   readonly keybinds: KeybindMap
   readonly modesPrompts: ModesPromptsValue
+  readonly onAutoAnswerChange: (value: boolean) => void
   readonly onKeybindRebind: (action: KeybindAction, combo: string) => void
   readonly onModesPromptsChange: (update: (value: ModesPromptsValue) => ModesPromptsValue) => void
   readonly onProviderRemove: (id: ProviderSettingsProvider["id"]) => void
@@ -50,6 +52,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
       <section className="overlay-section space-y-2">
         <h3 className="overlay-section-title">Transcription</h3>
         <p className="text-xs text-white/60">The transcription engine is selected when the app starts.</p>
+      </section>
+      <section className="overlay-section space-y-2">
+        <h3 className="overlay-section-title">Live transcription</h3>
+        <label className="flex items-center justify-between text-xs text-white/70">
+          <span>Answer questions automatically</span>
+          <input
+            type="checkbox"
+            checked={props.autoAnswer}
+            onChange={() => {
+              props.onAutoAnswerChange(!props.autoAnswer)
+            }}
+          />
+        </label>
+        <p className="text-xs text-white/60">Off by default. Yleulc only answers when you turn this on.</p>
       </section>
       <section className="overlay-section space-y-2">
         <h3 className="overlay-section-title">Keybinds</h3>

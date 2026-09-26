@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { defaultSettingsSnapshot } from "../../shared/settingsIpc"
 import { MeetingPanel } from "./history/MeetingPanel"
 import { ListenPanel } from "./listen/ListenPanel"
+import { ListenStatusPill } from "./listen/ListenStatusPill"
 import { OverlayPanel } from "./OverlayPanel"
 import { ProtectionDashboard } from "./protection/ProtectionDashboard"
 import { SettingsPanel } from "./settings/SettingsPanel"
@@ -31,11 +32,42 @@ describe("OverlayPanel", () => {
     expect(markup).toContain('class="ask-composer"')
   })
 
+  it("shows stopped with resume when the session is not running", () => {
+    const running = renderToStaticMarkup(
+      <ListenStatusPill
+        audioOn
+        listenSeconds={5}
+        onEndListen={() => undefined}
+        onHideOverlay={() => undefined}
+        onResume={() => undefined}
+        onToggleAudio={() => undefined}
+        running
+      />
+    )
+    const stopped = renderToStaticMarkup(
+      <ListenStatusPill
+        audioOn
+        listenSeconds={5}
+        onEndListen={() => undefined}
+        onHideOverlay={() => undefined}
+        onResume={() => undefined}
+        onToggleAudio={() => undefined}
+        running={false}
+      />
+    )
+    expect(running).toContain("Listening")
+    expect(running).toContain("End")
+    expect(stopped).toContain("Stopped")
+    expect(stopped).toContain("Resume")
+  })
+
   it("renders every overlay panel with the shared control system", () => {
     const settings = renderToStaticMarkup(
       <SettingsPanel
+        autoAnswer={defaultSettingsSnapshot.listen.autoAnswer}
         keybinds={defaultSettingsSnapshot.keybinds}
         modesPrompts={defaultSettingsSnapshot.modesPrompts}
+        onAutoAnswerChange={() => undefined}
         onKeybindRebind={() => undefined}
         onModesPromptsChange={() => undefined}
         onProviderRemove={() => undefined}
@@ -49,7 +81,18 @@ describe("OverlayPanel", () => {
       />
     )
     const activity = renderToStaticMarkup(<MeetingPanel transcript={[]} />)
-    const listen = renderToStaticMarkup(<ListenPanel />)
+    const listen = renderToStaticMarkup(
+      <ListenPanel
+        answers={[]}
+        entries={[]}
+        engineError={undefined}
+        onDismissEngineError={() => undefined}
+        onRetryAnswer={() => undefined}
+        onStopAnswer={() => undefined}
+        running={false}
+        systemAudio="unsupported"
+      />
+    )
     const protection = renderToStaticMarkup(<ProtectionDashboard />)
 
     expect(settings).toContain('class="overlay-section')

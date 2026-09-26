@@ -70,10 +70,12 @@ export interface ListenSessionShape {
   ) => Stream.Stream<ListenTranscriptEntry, E>
   readonly streamAutoAnswer: (
     entry: ListenTranscriptEntry,
-    requestId: string
+    requestId: string,
+    autoAnswerEnabled: boolean
   ) => Stream.Stream<ChatEvent, AskServiceError | ProviderError>
   readonly streamAnswers: <E>(
-    inputs: Stream.Stream<ListenInput, E>
+    inputs: Stream.Stream<ListenInput, E>,
+    autoAnswerEnabled: boolean
   ) => Stream.Stream<ListenAnswerEvent, AskServiceError | E | ProviderError>
 }
 
@@ -85,23 +87,25 @@ export function makeListenSession(ask: {
   ): Stream.Stream<ListenTranscriptEntry, E> => Stream.map(inputs, toListenEntry)
   const streamAutoAnswer = (
     entry: ListenTranscriptEntry,
-    requestId: string
+    requestId: string,
+    autoAnswerEnabled: boolean
   ): Stream.Stream<ChatEvent, AskServiceError | ProviderError> => {
-    if (!shouldAutoAnswer(entry)) {
+    if (!shouldAutoAnswer(entry, autoAnswerEnabled)) {
       return Stream.empty
     }
     return ask.streamAsk(toAutoAnswerRequest(entry, requestId))
   }
   const streamAnswers = <E>(
-    inputs: Stream.Stream<ListenInput, E>
+    inputs: Stream.Stream<ListenInput, E>,
+    autoAnswerEnabled: boolean
   ): Stream.Stream<ListenAnswerEvent, AskServiceError | E | ProviderError> =>
     Stream.flatMap(observe(inputs), (entry) => {
-      if (!shouldAutoAnswer(entry)) {
+      if (!shouldAutoAnswer(entry, autoAnswerEnabled)) {
         return Stream.empty
       }
       const requestId = listenAnswerRequestId(entry)
       const question = toAutoAnswerQuestion(entry)
-      return Stream.map(streamAutoAnswer(entry, requestId), (event): ListenAnswerEvent => ({
+      return Stream.map(streamAutoAnswer(entry, requestId, autoAnswerEnabled), (event): ListenAnswerEvent => ({
         entryId: entry.id,
         event,
         question,

@@ -45,7 +45,10 @@ export function isAutoAnswerIntent(text: string): boolean {
   return questionLeadPattern.test(trimmed)
 }
 
-export function shouldAutoAnswer(entry: ListenTranscriptEntry): boolean {
+export function shouldAutoAnswer(entry: ListenTranscriptEntry, autoAnswerEnabled: boolean): boolean {
+  if (!autoAnswerEnabled) {
+    return false
+  }
   if (entry.interim) {
     return false
   }

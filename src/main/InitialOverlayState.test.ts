@@ -3,10 +3,10 @@ import { initialOverlayState } from "../shared/initialOverlayState"
 
 describe("initialOverlayState", () => {
   it("opens the live transcript for listen mode", () => {
-    expect(initialOverlayState("listen")).toEqual({ listening: true, transcriptOpen: true })
+    expect(initialOverlayState("listen")).toEqual({ transcriptOpen: true })
   })
 
   it("opens the ask view for ask mode", () => {
-    expect(initialOverlayState("ask")).toEqual({ listening: true, transcriptOpen: false })
+    expect(initialOverlayState("ask")).toEqual({ transcriptOpen: false })
   })
 })

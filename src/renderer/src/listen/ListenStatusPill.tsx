@@ -1,17 +1,18 @@
 import { formatListenDuration } from "./ListenTimer"
 
 interface ListenStatusPillProps {
-  readonly listening: boolean
   readonly audioOn: boolean
   readonly listenSeconds: number
-  readonly onToggleAudio: () => void
   readonly onEndListen: () => void
   readonly onHideOverlay: () => void
+  readonly onResume: () => void
+  readonly onToggleAudio: () => void
+  readonly running: boolean
 }
 
 export function ListenStatusPill(props: ListenStatusPillProps) {
-  const stateText = props.listening ? "Listening" : "Paused"
-  const stateDot = props.listening ? "bg-emerald-400" : "bg-amber-400"
+  const stateText = props.running ? "Listening" : "Stopped"
+  const stateDot = props.running ? "bg-emerald-400" : "bg-amber-400"
   const audioText = props.audioOn ? "Mute" : "Unmute"
   return (
     <section className="live-status-bar" aria-label="Live session status">
@@ -28,13 +29,23 @@ export function ListenStatusPill(props: ListenStatusPillProps) {
       >
         {audioText}
       </button>
-      <button
-        type="button"
-        onClick={props.onEndListen}
-        className="overlay-primary-button rounded-full px-2 py-0.5"
-      >
-        End
-      </button>
+      {props.running ? (
+        <button
+          type="button"
+          onClick={props.onEndListen}
+          className="overlay-primary-button rounded-full px-2 py-0.5"
+        >
+          End
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={props.onResume}
+          className="overlay-button rounded-full px-2 py-0.5"
+        >
+          Resume
+        </button>
+      )}
       <button
         type="button"
         onClick={props.onHideOverlay}

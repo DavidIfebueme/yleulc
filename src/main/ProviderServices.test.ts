@@ -50,7 +50,7 @@ describe("production provider services", () => {
         Effect.provide(
           Effect.gen(function* () {
             const session = yield* ListenSession
-            return yield* Stream.runCollect(session.streamAutoAnswer(toListenEntry(listenInput), "listen-live-1"))
+            return yield* Stream.runCollect(session.streamAutoAnswer(toListenEntry(listenInput), "listen-live-1", true))
           }),
           Layer.merge(ListenSession.Live.pipe(Layer.provide(askLive)), emptyConfig)
         )

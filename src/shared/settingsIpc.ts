@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { defaultKeybinds } from "./keybinds"
 
 export const settingsGetChannel = "yleulc:settings-get"
@@ -58,12 +58,19 @@ export const StealthSettingsSchema = Schema.Struct({
 
 export type StealthSettings = typeof StealthSettingsSchema.Type
 
+export const ListenSettingsSchema = Schema.Struct({ autoAnswer: Schema.Boolean })
+
+export type ListenSettings = typeof ListenSettingsSchema.Type
+
+export const defaultListenSettings: ListenSettings = { autoAnswer: false }
+
 export const TranscriptionEngineKindSchema = Schema.Union([Schema.Literal("local"), Schema.Literal("deepgram"), Schema.Literal("assemblyai"), Schema.Literal("azure")])
 
 export type TranscriptionEngineKind = typeof TranscriptionEngineKindSchema.Type
 
 export const SettingsSnapshotSchema = Schema.Struct({
   keybinds: KeybindMapSchema,
+  listen: ListenSettingsSchema.pipe(Schema.withDecodingDefaultKey(Effect.succeed(defaultListenSettings))),
   modesPrompts: ModesPromptsSettingsSchema,
   stealth: StealthSettingsSchema,
   transcriptionEngine: TranscriptionEngineKindSchema
@@ -91,6 +98,7 @@ export function isValidSettingsSnapshot(snapshot: SettingsSnapshot): boolean {
 
 export const defaultSettingsSnapshot: SettingsSnapshot = {
   keybinds: { ...defaultKeybinds },
+  listen: { ...defaultListenSettings },
   modesPrompts: {
     activePromptModeId: "general",
     defaultMode: "ask",
