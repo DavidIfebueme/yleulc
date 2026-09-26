@@ -1,6 +1,7 @@
 import { Effect, Stream } from "effect"
 import { describe, expect, it } from "vitest"
 import { openaiErrorStream } from "./fixtures/openaiErrorStream"
+import { deepseekReasoningStream } from "./fixtures/deepseekReasoningStream"
 import { openaiModelList } from "./fixtures/openaiModelList"
 import { openaiTextStream } from "./fixtures/openaiTextStream"
 import { openaiUsageStream } from "./fixtures/openaiUsageStream"
@@ -73,6 +74,14 @@ describe("chatEventsFromSseText", () => {
     expect(error._tag).toBe("ProviderError")
     expect(error.kind).toBe("parse")
     expect(error.providerId).toBe("openai")
+  })
+  it("accepts DeepSeek chunks that carry null usage and reasoning content", async () => {
+    const events = await Effect.runPromise(chatEventsFromSseText("deepseek", deepseekReasoningStream))
+    expect(events).toEqual([
+      { _tag: "text-delta", delta: "Hi! How can I help?" },
+      { _tag: "done", finishReason: "stop" },
+      { _tag: "usage", usage: { completionTokens: 5, promptTokens: 9, totalTokens: 14 } }
+    ])
   })
 })
 

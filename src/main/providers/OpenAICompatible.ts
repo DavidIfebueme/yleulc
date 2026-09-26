@@ -94,7 +94,7 @@ export const OpenAIStreamUsageSchema = Schema.Struct({
 
 export const OpenAIStreamChunkSchema = Schema.Struct({
   choices: Schema.optional(Schema.Array(OpenAIStreamChoiceSchema)),
-  usage: Schema.optional(OpenAIStreamUsageSchema)
+  usage: Schema.optional(Schema.Union([Schema.Null, OpenAIStreamUsageSchema]))
 })
 
 export type OpenAIStreamChunk = typeof OpenAIStreamChunkSchema.Type
@@ -223,7 +223,7 @@ export function chatEventsFromSseText(
         }
       }
       const usage = maybeChunk.success.usage
-      if (usage !== undefined) {
+      if (usage !== undefined && usage !== null) {
         events.push({
           _tag: "usage",
           usage: {
@@ -266,7 +266,7 @@ export function chatEventsFromOpenRouterSseText(
         )
       }
       const usage = maybeChunk.success.usage
-      if (usage !== undefined) {
+      if (usage !== undefined && usage !== null) {
         events.push({
           _tag: "usage",
           usage: {
