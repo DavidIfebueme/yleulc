@@ -39,9 +39,10 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <select
           value={props.value.defaultMode}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+            const next = event.currentTarget.value === "listen" ? "listen" : "ask"
             props.onChange((value) => ({
               ...value,
-              defaultMode: event.currentTarget.value === "listen" ? "listen" : "ask"
+              defaultMode: next
             }))
           }}
           className="overlay-select px-1.5 py-1 text-xs outline-none"
@@ -55,7 +56,8 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <select
           value={props.value.defaultProviderId}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-            const provider = props.providerOptions.find((option) => option.id === event.currentTarget.value)
+            const selectedId = event.currentTarget.value
+            const provider = props.providerOptions.find((option) => option.id === selectedId)
             props.onChange((value) => ({ ...value, defaultProviderId: provider?.id ?? value.defaultProviderId }))
           }}
           className="overlay-select px-1.5 py-1 text-xs outline-none"
@@ -73,7 +75,8 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <select
           value={props.value.defaultModel}
           onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-            props.onChange((value) => ({ ...value, defaultModel: event.currentTarget.value }))
+            const nextModel = event.currentTarget.value
+            props.onChange((value) => ({ ...value, defaultModel: nextModel }))
           }}
           className="overlay-input w-40 px-2 py-1 text-xs outline-none"
         >
@@ -95,7 +98,8 @@ export function ModesPrompts(props: ModesPromptsProps) {
         <textarea
           value={props.value.systemPrompt}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
-            props.onChange((value) => ({ ...value, systemPrompt: event.currentTarget.value }))
+            const nextPrompt = event.currentTarget.value
+            props.onChange((value) => ({ ...value, systemPrompt: nextPrompt }))
           }}
           rows={3}
           className="overlay-input w-full px-2 py-1 text-xs outline-none"
@@ -117,10 +121,11 @@ export function ModesPrompts(props: ModesPromptsProps) {
             <input
               value={mode.label}
               onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                const nextLabel = event.currentTarget.value
                 props.onChange((value) => ({
                   ...value,
                   promptModes: value.promptModes.map((entry) =>
-                    entry.id === mode.id ? { ...entry, label: event.currentTarget.value } : entry
+                    entry.id === mode.id ? { ...entry, label: nextLabel } : entry
                   )
                 }))
               }}
@@ -129,10 +134,11 @@ export function ModesPrompts(props: ModesPromptsProps) {
             <textarea
               value={mode.prompt}
               onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+                const nextModePrompt = event.currentTarget.value
                 props.onChange((value) => ({
                   ...value,
                   promptModes: value.promptModes.map((entry) =>
-                    entry.id === mode.id ? { ...entry, prompt: event.currentTarget.value } : entry
+                    entry.id === mode.id ? { ...entry, prompt: nextModePrompt } : entry
                   )
                 }))
               }}

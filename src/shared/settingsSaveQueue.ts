@@ -24,6 +24,14 @@ export function makeSettingsDraft(initial: SettingsSnapshot): SettingsDraft {
   }
 }
 
+export function describeSettingsSaveFailure(cause: unknown): string {
+  if (cause instanceof Error) {
+    const detail = cause.message.trim()
+    return detail === "" ? "settings could not be saved" : `settings could not be saved: ${detail}`
+  }
+  return "settings could not be saved"
+}
+
 export function makeSettingsSaveQueue(
   initial: SettingsSnapshot,
   save: (snapshot: SettingsSnapshot) => Promise<SettingsSnapshot>

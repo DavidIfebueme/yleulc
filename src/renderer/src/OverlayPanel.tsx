@@ -3,7 +3,7 @@ import type { ListenTranscriptEntry } from "../../shared/listenIpc"
 import { toMeetingTranscript, type MeetingTranscript } from "../../shared/meeting"
 import { defaultSettingsSnapshot, type SettingsSnapshot } from "../../shared/settingsIpc"
 import type { ProviderSettingsProvider } from "../../shared/providerIpc"
-import { makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
+import { describeSettingsSaveFailure, makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
 import { AskPanel } from "./ask/AskPanel"
 import { MeetingPanel } from "./history/MeetingPanel"
 import { OverlayLogoMark } from "./overlay/OverlayLogoMark"
@@ -54,8 +54,8 @@ export function OverlayPanel() {
         setSettings(saved)
         setSettingsSaveError("")
       },
-      () => {
-        setSettingsSaveError("settings could not be saved")
+      (cause: unknown) => {
+        setSettingsSaveError(describeSettingsSaveFailure(cause))
       }
     )
   }
