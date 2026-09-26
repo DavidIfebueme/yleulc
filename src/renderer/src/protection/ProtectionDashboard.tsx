@@ -52,8 +52,8 @@ export function ProtectionDashboard() {
   }
 
   return (
-    <section className="text-white">
-       <div className="overlay-section mb-3 flex items-center justify-between gap-3">
+    <section className="w-full min-w-0 text-white">
+       <div className="overlay-section mb-2 flex min-w-0 items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium">Protection</h2>
           <p className="text-xs text-white/55">Wrapped apps exclude the overlay from X11 captures.</p>

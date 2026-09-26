@@ -132,9 +132,9 @@ export function MeetingPanel(props: MeetingPanelProps) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="w-full min-w-0 space-y-2">
       <div className="overlay-section">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center justify-between gap-2">
           <p className="text-sm font-medium text-white/90">Activity</p>
           <button
             type="button"

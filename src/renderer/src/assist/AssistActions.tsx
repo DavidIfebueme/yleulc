@@ -6,7 +6,7 @@ interface AssistActionsProps {
 
 export function AssistActions(props: AssistActionsProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-none items-center gap-2">
       <button
         type="button"
         onClick={props.onTellMore}

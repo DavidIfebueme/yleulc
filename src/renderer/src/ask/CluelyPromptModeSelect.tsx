@@ -13,12 +13,12 @@ export function CluelyPromptModeSelect(props: CluelyPromptModeSelectProps) {
     props.onModeChange(found?.id ?? props.modes[0]?.id ?? "")
   }
   return (
-    <label className="flex items-center gap-1.5 text-xs text-white/60">
+    <label className="flex min-w-0 items-center gap-1.5 text-xs text-white/60">
       <span className="sr-only">Prompt mode</span>
       <select
         value={props.modeId}
         onChange={handleChange}
-        className="overlay-select max-w-44 px-2 py-1 text-xs font-semibold outline-none"
+        className="overlay-select min-w-0 max-w-44 px-2 py-1 text-xs font-semibold outline-none"
       >
         {props.modes.map((mode) => (
           <option key={mode.id} value={mode.id}>

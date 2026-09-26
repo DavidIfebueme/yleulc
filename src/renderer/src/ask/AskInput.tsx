@@ -17,14 +17,14 @@ export function AskInput(props: AskInputProps) {
     }
   }
   return (
-    <div className="overlay-card flex items-center gap-2 px-3 py-2">
+    <div className="overlay-card flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
       <input
         value={props.value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder="Ask anything about this meeting"
         aria-label="Ask input"
-        className="overlay-input w-full border-0 bg-transparent px-0 text-sm outline-none"
+        className="overlay-input min-w-0 w-full flex-1 border-0 bg-transparent px-0 text-sm outline-none"
       />
       <kbd className="shrink-0 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/50">
         Tab

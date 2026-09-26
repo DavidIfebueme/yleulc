@@ -5,7 +5,7 @@ interface AssistQuickChipsProps {
 
 export function AssistQuickChips(props: AssistQuickChipsProps) {
   return (
-    <div className="overlay-action-strip">
+    <div className="overlay-action-strip min-w-0 flex-1">
       {props.chips.map((chip) => (
         <button
           key={chip}

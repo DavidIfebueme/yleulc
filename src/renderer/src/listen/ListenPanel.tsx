@@ -12,8 +12,8 @@ interface ListenPanelProps {
 export function ListenPanel(props: ListenPanelProps) {
   const session = useListenSession({ onEntriesChange: props.onTranscriptChange })
   return (
-    <div>
-      <div className="mt-3 flex items-center gap-1.5">
+    <div className="min-w-0 w-full">
+      <div className="mt-1 flex min-w-0 items-center gap-1.5">
         <ListenWaveMark />
         <p className="text-xs font-semibold text-white/85">Live transcript</p>
         {session.answers.length === 0 ? null : (
@@ -32,7 +32,7 @@ export function ListenPanel(props: ListenPanelProps) {
       ) : null}
       <ListenTranscriptBar entries={session.entries} />
       {session.answers.length === 0 ? null : (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 min-w-0 space-y-1.5">
           {session.answers.map((answer) => (
             <ListenAutoAnswerCard
               key={answer.requestId}

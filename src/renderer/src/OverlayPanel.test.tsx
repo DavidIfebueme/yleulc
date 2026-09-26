@@ -58,4 +58,12 @@ describe("OverlayPanel", () => {
     expect(listen).toContain('class="overlay-card')
     expect(protection).toContain('class="overlay-section')
   })
+
+  it("keeps quick actions and answer actions from clipping the composer", () => {
+    const markup = renderToStaticMarkup(<OverlayPanel />)
+    expect(markup).toContain('class="overlay-action-strip min-w-0 flex-1"')
+    expect(markup).toContain('class="flex flex-none items-center gap-2"')
+    expect(markup).toContain('class="ask-composer"')
+    expect(markup).toContain('class="ask-action-strip"')
+  })
 })

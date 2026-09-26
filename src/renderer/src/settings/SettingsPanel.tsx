@@ -22,8 +22,8 @@ interface SettingsPanelProps {
 
 export function SettingsPanel(props: SettingsPanelProps) {
   return (
-    <div className="space-y-3 text-white">
-      <div className="flex items-center justify-between">
+    <div className="w-full min-w-0 space-y-2 text-white">
+      <div className="flex min-w-0 items-center justify-between gap-2">
         <div>
           <p className="overlay-section-title">Workspace controls</p>
           <h2 className="mt-0.5 text-sm font-semibold text-white/90">Settings</h2>

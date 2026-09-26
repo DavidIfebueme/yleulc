@@ -346,7 +346,7 @@ export function AskPanel(props: AskPanelProps) {
               onClick={() => {
                 setSmartMode((value) => !value)
               }}
-                className={`mb-1 rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+                className={`mb-1 shrink-0 rounded-lg border px-2 py-1 text-[11px] font-semibold ${
                 smartMode
                   ? "border-violet-300/50 bg-violet-400/20 text-violet-100"
                   : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"

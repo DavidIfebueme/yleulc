@@ -33,8 +33,8 @@ export function ModesPrompts(props: ModesPromptsProps) {
   }
 
   return (
-    <div className="space-y-2">
-      <label className="flex items-center justify-between gap-2 text-xs text-white/70">
+    <div className="w-full min-w-0 space-y-2">
+      <label className="flex min-w-0 items-center justify-between gap-2 text-xs text-white/70">
         <span>Default view</span>
         <select
           value={props.value.defaultMode}
@@ -51,7 +51,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
           <option value="listen">Live transcript</option>
         </select>
       </label>
-      <label className="flex items-center justify-between gap-2 text-xs text-white/70">
+      <label className="flex min-w-0 items-center justify-between gap-2 text-xs text-white/70">
         <span>Default provider</span>
         <select
           value={props.value.defaultProviderId}
@@ -70,7 +70,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
           ))}
         </select>
       </label>
-      <label className="flex items-center justify-between gap-2 text-xs text-white/70">
+      <label className="flex min-w-0 items-center justify-between gap-2 text-xs text-white/70">
         <span>Default model</span>
         <select
           value={props.value.defaultModel}
@@ -93,7 +93,7 @@ export function ModesPrompts(props: ModesPromptsProps) {
       {props.value.defaultProviderId === "openrouter" && props.value.defaultModel === "openrouter/free" ? (
         <p className="text-xs text-white/60">OpenRouter Free is zero-cost. Availability and rate limits vary.</p>
       ) : null}
-      <label className="block space-y-1 text-xs text-white/70">
+      <label className="block min-w-0 space-y-1 text-xs text-white/70">
         <span>System prompt</span>
         <textarea
           value={props.value.systemPrompt}
@@ -105,8 +105,8 @@ export function ModesPrompts(props: ModesPromptsProps) {
           className="overlay-input w-full px-2 py-1 text-xs outline-none"
         />
       </label>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-white/70">
+      <div className="min-w-0 space-y-2">
+        <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-white/70">
           <span>Prompt modes</span>
           <button
             type="button"
