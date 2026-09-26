@@ -11,7 +11,7 @@ export function AssistQuickChips(props: AssistQuickChipsProps) {
           key={chip}
           type="button"
           onClick={() => props.onSelect(chip)}
-          className="overlay-button shrink-0 text-left text-sky-100/90"
+          className="overlay-button shrink-0 text-left text-violet-100/90"
         >
           {chip}
         </button>

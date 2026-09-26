@@ -14,7 +14,7 @@ export function TranscriptView(props: TranscriptViewProps) {
       {props.segments.map((segment) => (
         <li key={`${segment.time}-${segment.speaker}`} className="flex items-baseline gap-2 text-xs">
           <span className="shrink-0 font-mono text-white/40">{segment.time}</span>
-          <span className="shrink-0 font-semibold text-sky-300">{segment.speaker}</span>
+          <span className="shrink-0 font-semibold text-violet-300">{segment.speaker}</span>
           <span className="text-white/80">{segment.text}</span>
         </li>
       ))}

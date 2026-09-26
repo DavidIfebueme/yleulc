@@ -8,7 +8,7 @@ export function TranscriptToggle(props: TranscriptToggleProps) {
     <button
       type="button"
       onClick={props.onToggle}
-      className="overlay-button rounded-full px-2 py-0.5 text-sky-100"
+      className="overlay-button rounded-full px-2 py-0.5 text-violet-100"
     >
       {props.open ? "Hide Transcript" : "Show Transcript"}
     </button>

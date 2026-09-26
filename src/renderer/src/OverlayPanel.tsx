@@ -6,7 +6,6 @@ import type { ProviderSettingsProvider } from "../../shared/providerIpc"
 import { describeSettingsSaveFailure, makeSettingsSaveQueue, type SettingsUpdate } from "../../shared/settingsSaveQueue"
 import { AskPanel } from "./ask/AskPanel"
 import { MeetingPanel } from "./history/MeetingPanel"
-import { OverlayLogoMark } from "./overlay/OverlayLogoMark"
 import { SettingsDashboard } from "./settings/SettingsDashboard"
 import { ProtectionDashboard } from "./protection/ProtectionDashboard"
 
@@ -69,12 +68,6 @@ export function OverlayPanel() {
       <div className="overlay-surface">
         <header className="overlay-app-header overlay-drag">
           <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-white/80">
-            <span className="grid grid-cols-2 gap-0.5" aria-hidden="true">
-              {[0, 1, 2, 3, 4, 5].map((dot) => (
-                <span key={dot} className="h-1 w-1 rounded-full bg-white/35" />
-              ))}
-            </span>
-            <OverlayLogoMark />
             <span className="truncate">yleulc</span>
           </div>
           <nav className="overlay-no-drag overlay-app-nav" aria-label="Overlay navigation">

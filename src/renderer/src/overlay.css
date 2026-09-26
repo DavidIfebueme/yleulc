@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+:root {
+  --yleulc-accent: 156 111 243;
+  --yleulc-accent-soft: 185 161 246;
+}
+
 html,
 body,
 #root {
@@ -169,14 +174,14 @@ body {
 .overlay-button:focus-visible,
 .overlay-input:focus-visible,
 .overlay-select:focus-visible {
-  outline: 2px solid rgb(56 189 248 / 75%);
+  outline: 2px solid rgb(var(--yleulc-accent) / 75%);
   outline-offset: 2px;
 }
 
 .overlay-primary-button {
-  border: 1px solid rgb(103 232 249 / 55%);
+  border: 1px solid rgb(var(--yleulc-accent-soft) / 55%);
   border-radius: 8px;
-  background: linear-gradient(135deg, rgb(8 145 178), rgb(79 70 229));
+  background: linear-gradient(135deg, rgb(124 58 237), rgb(79 70 229));
   padding: 5px 9px;
   color: white;
   font-size: 11px;
@@ -187,7 +192,7 @@ body {
 }
 
 .overlay-primary-button:hover {
-  background: linear-gradient(135deg, rgb(6 182 212), rgb(99 102 241));
+  background: linear-gradient(135deg, rgb(139 92 246), rgb(99 102 241));
 }
 
 .overlay-input,
@@ -206,9 +211,9 @@ body {
 
 .overlay-badge {
   border-radius: 999px;
-  background: rgb(56 189 248 / 12%);
+  background: rgb(var(--yleulc-accent) / 12%);
   padding: 2px 6px;
-  color: rgb(186 230 253 / 92%);
+  color: rgb(var(--yleulc-accent-soft) / 92%);
   font-size: 10px;
   font-weight: 700;
   white-space: nowrap;

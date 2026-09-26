@@ -16,7 +16,7 @@ export function ScreenshotTray(props: ScreenshotTrayProps) {
           <img
             src={attachment.dataUrl}
             alt="Attached screenshot"
-            className="h-12 w-20 rounded-lg border border-sky-200/20 object-cover"
+            className="h-12 w-20 rounded-lg border border-violet-200/20 object-cover"
           />
           <button
             type="button"
