@@ -8,7 +8,16 @@ Yleulc: Linux-first invisible AI meeting overlay. Electron + React + TypeScript 
 - `npm run typecheck` — strict typecheck, must pass before any commit
 - `npm run lint` — eslint, must pass before any commit
 - `npm run test` — vitest unit tests, must pass before any commit
+- `npm run check:fresh` — fail when any source file is newer than `out/`
+- `npm run verify:ui` — headless UI battery; writes evidence under `/tmp/opencode/verify-yleulc-*/artifacts`
 - `npm run build` — production build
+
+## Releases and verification
+
+- Releases come from CI. Push a `v*.*.*` tag and `.github/workflows/release.yml` builds the artifacts and attaches them. Do not hand-package a release.
+- Local packaging goes through `npm run dist`, never `electron-builder` directly. `npm run check:fresh` exists because a stale `out/` once shipped under a correct version number.
+- UI behavior is verified with the `verify-yleulc` skill. `npm run verify:ui` drives the real renderer over CDP against a mock provider. CI runs it on every push and pull request.
+- Read every screenshot with vision before claiming a UI pass. Text assertions alone miss layout and clipping regressions.
 
 ## Rules
 

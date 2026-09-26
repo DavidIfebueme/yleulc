@@ -1,0 +1,36 @@
+name: verify-ui
+"on":
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4.4.0
+      - name: setup node
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22.22.1
+          cache: npm
+      - name: install dependencies
+        run: npm ci
+      - name: install display and electron libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libasound2t64 libgbm1 libxss1 libxtst6 libsecret-1-0
+      - name: run ui verification
+        run: npm run verify:ui
+      - name: upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: verify-ui-evidence
+          path: /tmp/opencode/verify-yleulc-*/artifacts
+          if-no-files-found: warn
